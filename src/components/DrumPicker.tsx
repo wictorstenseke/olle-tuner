@@ -27,17 +27,6 @@ export function DrumPicker({
 }: Props) {
   return (
     <div className="drum-picker">
-      <div className="drum-picker-header">
-        <span className="drum-picker-title">DRUM MACHINE</span>
-        <div
-          className="drum-picker-led"
-          style={{
-            backgroundColor: active ? '#00ff44' : '#333',
-            boxShadow: active ? '0 0 8px #00ff44' : 'none',
-          }}
-        />
-      </div>
-
       <div className="drum-picker-controls">
         <div className="drum-picker-row">
           <label>PATTERN</label>

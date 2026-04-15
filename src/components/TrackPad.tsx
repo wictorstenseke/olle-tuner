@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import type { TrackState } from '../types';
 
 interface Props {
@@ -9,31 +9,39 @@ interface Props {
 }
 
 const STATE_COLORS: Record<TrackState, string> = {
-  empty: '#333',
+  empty: '#444',
   recording: '#ff2222',
   playing: '#00ff44',
-  muted: '#555',
+  muted: '#ff8800',
 };
 
 const STATE_GLOW: Record<TrackState, string> = {
   empty: 'none',
   recording: '0 0 20px #ff2222, 0 0 40px #ff222266',
   playing: '0 0 20px #00ff44, 0 0 40px #00ff4466',
-  muted: '0 0 8px #55555566',
+  muted: '0 0 12px #ff880066',
 };
 
 const STATE_LABELS: Record<TrackState, string> = {
-  empty: 'TAP TO REC',
+  empty: '',
   recording: '● REC',
   playing: '▶ PLAYING',
-  muted: '■ MUTED',
+  muted: 'MUTED',
 };
 
-export function TrackPad({ id, state, onPress, onDelete }: Props) {
+export function TrackPad({ state, onPress, onDelete }: Props) {
   const [showDelete, setShowDelete] = useState(false);
   const [pressed, setPressed] = useState(false);
+  const pressTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  const handleDelete = (e: React.MouseEvent | React.TouchEvent) => {
+  const handlePress = () => {
+    setPressed(true);
+    clearTimeout(pressTimer.current);
+    pressTimer.current = setTimeout(() => setPressed(false), 150);
+    onPress();
+  };
+
+  const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (showDelete) {
       onDelete();
@@ -55,30 +63,32 @@ export function TrackPad({ id, state, onPress, onDelete }: Props) {
         }}
       />
 
-      {/* Main pad button */}
+      {/* Rubber footswitch pad */}
       <button
         className={`track-pad ${state} ${pressed ? 'pressed' : ''}`}
-        onPointerDown={() => setPressed(true)}
-        onPointerUp={() => { setPressed(false); onPress(); }}
-        onPointerLeave={() => setPressed(false)}
-        style={{
-          borderColor: STATE_COLORS[state],
-        }}
+        onClick={handlePress}
       >
-        <span className="track-pad-number">TRACK {id}</span>
-        <span className="track-pad-label" style={{ color: STATE_COLORS[state] }}>
-          {STATE_LABELS[state]}
-        </span>
+        <div className="pad-surface">
+          <div className="pad-grip-lines">
+            <div className="grip-line" />
+            <div className="grip-line" />
+            <div className="grip-line" />
+          </div>
+          {STATE_LABELS[state] && (
+            <span className="track-pad-label" style={{ color: STATE_COLORS[state] }}>
+              {STATE_LABELS[state]}
+            </span>
+          )}
+        </div>
       </button>
 
       {/* Delete button */}
-      {state !== 'empty' && (
+      {(state === 'playing' || state === 'muted') && (
         <button
           className={`track-delete ${showDelete ? 'confirm' : ''}`}
           onClick={handleDelete}
-          onTouchEnd={handleDelete}
         >
-          {showDelete ? '✕ CONFIRM' : '✕'}
+          {showDelete ? '✕ DELETE' : '✕'}
         </button>
       )}
     </div>

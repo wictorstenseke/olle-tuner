@@ -25,6 +25,7 @@ export function useAudioEngine() {
   const [loopProgress, setLoopProgress] = useState(0);
   const [isLooping, setIsLooping] = useState(false);
   const [inputLevel, setInputLevel] = useState(0);
+  const [micReady, setMicReady] = useState(false);
   const [drumState, setDrumState] = useState<DrumState>({
     active: false,
     patternIndex: 0,
@@ -39,14 +40,16 @@ export function useAudioEngine() {
   const recordingTrackRef = useRef<number | null>(null);
   const loopDurationRef = useRef<number>(0);
   const loopStartTimeRef = useRef<number>(0);
-  const animFrameRef = useRef<number>(0);
+  const inputAnimFrameRef = useRef<number>(0);
+  const progressAnimFrameRef = useRef<number>(0);
   const sourceNodesRef = useRef<Map<number, AudioBufferSourceNode>>(new Map());
   const gainNodesRef = useRef<Map<number, GainNode>>(new Map());
   const analyserRef = useRef<AnalyserNode | null>(null);
   const drumIntervalRef = useRef<number | null>(null);
   const drumSourcesRef = useRef<AudioBufferSourceNode[]>([]);
+  const tracksRef = useRef(tracks);
+  tracksRef.current = tracks;
 
-  // Drum sample buffers
   const drumBuffersRef = useRef<Map<string, AudioBuffer>>(new Map());
 
   const getAudioContext = useCallback(() => {
@@ -59,7 +62,6 @@ export function useAudioEngine() {
     return audioContextRef.current;
   }, []);
 
-  // Generate simple drum sounds using synthesis
   const getDrumBuffer = useCallback((name: string): AudioBuffer => {
     const ctx = getAudioContext();
     const existing = drumBuffersRef.current.get(name);
@@ -87,7 +89,6 @@ export function useAudioEngine() {
         data[i] = (tone + noise) * env * 0.5;
       }
     } else {
-      // hihat
       for (let i = 0; i < length; i++) {
         const t = i / sampleRate;
         const env = Math.exp(-t * 40);
@@ -99,34 +100,41 @@ export function useAudioEngine() {
     return buffer;
   }, [getAudioContext]);
 
-  // Input level monitoring
-  const startInputMonitor = useCallback(async () => {
-    const ctx = getAudioContext();
-    if (!mediaStreamRef.current) {
+  // Request mic access — called on first user interaction
+  const initMic = useCallback(async () => {
+    if (mediaStreamRef.current) return;
+    try {
+      const ctx = getAudioContext();
       mediaStreamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
-    }
-    const source = ctx.createMediaStreamSource(mediaStreamRef.current);
-    const analyser = ctx.createAnalyser();
-    analyser.fftSize = 256;
-    source.connect(analyser);
-    analyserRef.current = analyser;
+      setMicReady(true);
 
-    const dataArray = new Uint8Array(analyser.frequencyBinCount);
-    const updateLevel = () => {
-      analyser.getByteTimeDomainData(dataArray);
-      let max = 0;
-      for (let i = 0; i < dataArray.length; i++) {
-        const val = Math.abs(dataArray[i] - 128);
-        if (val > max) max = val;
-      }
-      setInputLevel(max / 128);
-      animFrameRef.current = requestAnimationFrame(updateLevel);
-    };
-    updateLevel();
+      // Start input level monitoring
+      const source = ctx.createMediaStreamSource(mediaStreamRef.current);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
+      analyserRef.current = analyser;
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      const updateLevel = () => {
+        analyser.getByteTimeDomainData(dataArray);
+        let max = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+          const val = Math.abs(dataArray[i] - 128);
+          if (val > max) max = val;
+        }
+        setInputLevel(max / 128);
+        inputAnimFrameRef.current = requestAnimationFrame(updateLevel);
+      };
+      updateLevel();
+    } catch (err) {
+      console.error('Mic access denied:', err);
+    }
   }, [getAudioContext]);
 
   // Loop progress animation
   const startProgressLoop = useCallback(() => {
+    cancelAnimationFrame(progressAnimFrameRef.current);
     const update = () => {
       if (loopDurationRef.current <= 0) return;
       const ctx = audioContextRef.current;
@@ -134,26 +142,23 @@ export function useAudioEngine() {
       const elapsed = ctx.currentTime - loopStartTimeRef.current;
       const progress = (elapsed % loopDurationRef.current) / loopDurationRef.current;
       setLoopProgress(progress);
-      animFrameRef.current = requestAnimationFrame(update);
+      progressAnimFrameRef.current = requestAnimationFrame(update);
     };
     update();
   }, []);
 
-  // Play a single track buffer in a loop
   const playTrackLoop = useCallback((trackId: number, buffer: AudioBuffer) => {
     const ctx = getAudioContext();
 
-    // Stop existing source
     const existing = sourceNodesRef.current.get(trackId);
     if (existing) {
-      try { existing.stop(); } catch {}
+      try { existing.stop(); } catch { /* already stopped */ }
     }
 
     const source = ctx.createBufferSource();
     source.buffer = buffer;
     source.loop = true;
 
-    // Align to master loop timing
     if (loopDurationRef.current > 0) {
       source.loopEnd = loopDurationRef.current;
     }
@@ -168,7 +173,6 @@ export function useAudioEngine() {
 
     source.connect(gainNode);
 
-    // Start aligned to loop
     if (loopStartTimeRef.current > 0) {
       const elapsed = ctx.currentTime - loopStartTimeRef.current;
       const offset = elapsed % loopDurationRef.current;
@@ -181,13 +185,14 @@ export function useAudioEngine() {
     sourceNodesRef.current.set(trackId, source);
   }, [getAudioContext]);
 
-  // Start recording on a track
   const startRecording = useCallback(async (trackId: number) => {
     const ctx = getAudioContext();
 
+    // Ensure mic is ready
     if (!mediaStreamRef.current) {
-      mediaStreamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
+      await initMic();
     }
+    if (!mediaStreamRef.current) return; // mic denied
 
     chunksRef.current = [];
     recordingTrackRef.current = trackId;
@@ -206,7 +211,6 @@ export function useAudioEngine() {
 
       const tid = recordingTrackRef.current!;
 
-      // First track sets loop duration
       if (loopDurationRef.current <= 0) {
         loopDurationRef.current = audioBuffer.duration;
         loopStartTimeRef.current = ctx.currentTime;
@@ -226,16 +230,14 @@ export function useAudioEngine() {
     setTracks(prev => prev.map(t =>
       t.id === trackId ? { ...t, state: 'recording' as TrackState } : t
     ));
-  }, [getAudioContext, playTrackLoop, startProgressLoop]);
+  }, [getAudioContext, initMic, playTrackLoop, startProgressLoop]);
 
-  // Stop recording
   const stopRecording = useCallback(() => {
     if (recorderRef.current && recorderRef.current.state === 'recording') {
       recorderRef.current.stop();
     }
   }, []);
 
-  // Toggle mute
   const toggleMute = useCallback((trackId: number) => {
     setTracks(prev => prev.map(t => {
       if (t.id !== trackId) return t;
@@ -253,11 +255,10 @@ export function useAudioEngine() {
     }));
   }, []);
 
-  // Delete track
   const deleteTrack = useCallback((trackId: number) => {
     const source = sourceNodesRef.current.get(trackId);
     if (source) {
-      try { source.stop(); } catch {}
+      try { source.stop(); } catch { /* already stopped */ }
       sourceNodesRef.current.delete(trackId);
     }
     const gain = gainNodesRef.current.get(trackId);
@@ -270,11 +271,11 @@ export function useAudioEngine() {
       const updated = prev.map(t =>
         t.id === trackId ? { ...t, state: 'empty' as TrackState, buffer: null } : t
       );
-      // If no tracks playing, reset loop
       const anyActive = updated.some(t => t.state === 'playing' || t.state === 'muted');
       if (!anyActive) {
         loopDurationRef.current = 0;
         loopStartTimeRef.current = 0;
+        cancelAnimationFrame(progressAnimFrameRef.current);
         setIsLooping(false);
         setLoopProgress(0);
       }
@@ -282,9 +283,9 @@ export function useAudioEngine() {
     });
   }, []);
 
-  // Handle pad press
+  // Use ref to avoid stale closure in handlePadPress
   const handlePadPress = useCallback((trackId: number) => {
-    const track = tracks.find(t => t.id === trackId);
+    const track = tracksRef.current.find(t => t.id === trackId);
     if (!track) return;
 
     switch (track.state) {
@@ -299,24 +300,14 @@ export function useAudioEngine() {
         toggleMute(trackId);
         break;
     }
-  }, [tracks, startRecording, stopRecording, toggleMute]);
+  }, [startRecording, stopRecording, toggleMute]);
 
-  // Drum machine
+  // Drum machine — loops independently, does NOT set master loop
   const startDrums = useCallback(() => {
     const ctx = getAudioContext();
     const pattern = drumPatterns[drumState.patternIndex];
-    const stepDuration = 60 / drumState.bpm / 4; // 16th notes
+    const stepDuration = 60 / drumState.bpm / 4;
     const totalSteps = pattern.steps * drumState.bars;
-
-    // Calculate loop duration from drums
-    const drumLoopDuration = totalSteps * stepDuration;
-
-    if (loopDurationRef.current <= 0) {
-      loopDurationRef.current = drumLoopDuration;
-      loopStartTimeRef.current = ctx.currentTime;
-      setIsLooping(true);
-      startProgressLoop();
-    }
 
     let step = 0;
     const scheduleStep = () => {
@@ -341,14 +332,14 @@ export function useAudioEngine() {
     drumIntervalRef.current = window.setInterval(scheduleStep, stepDuration * 1000);
 
     setDrumState(prev => ({ ...prev, active: true }));
-  }, [getAudioContext, drumState.patternIndex, drumState.bpm, drumState.bars, getDrumBuffer, startProgressLoop]);
+  }, [getAudioContext, drumState.patternIndex, drumState.bpm, drumState.bars, getDrumBuffer]);
 
   const stopDrums = useCallback(() => {
     if (drumIntervalRef.current) {
       clearInterval(drumIntervalRef.current);
       drumIntervalRef.current = null;
     }
-    drumSourcesRef.current.forEach(s => { try { s.stop(); } catch {} });
+    drumSourcesRef.current.forEach(s => { try { s.stop(); } catch { /* already stopped */ } });
     drumSourcesRef.current = [];
     setDrumState(prev => ({ ...prev, active: false }));
   }, []);
@@ -365,15 +356,15 @@ export function useAudioEngine() {
     setDrumState(prev => ({ ...prev, bars }));
   }, []);
 
-  // Stop all
   const stopAll = useCallback(() => {
     sourceNodesRef.current.forEach((source) => {
-      try { source.stop(); } catch {}
+      try { source.stop(); } catch { /* already stopped */ }
     });
     sourceNodesRef.current.clear();
     gainNodesRef.current.forEach(g => g.disconnect());
     gainNodesRef.current.clear();
     stopDrums();
+    cancelAnimationFrame(progressAnimFrameRef.current);
     loopDurationRef.current = 0;
     loopStartTimeRef.current = 0;
     setIsLooping(false);
@@ -382,18 +373,19 @@ export function useAudioEngine() {
   }, [stopDrums]);
 
   useEffect(() => {
-    startInputMonitor();
     return () => {
-      cancelAnimationFrame(animFrameRef.current);
+      cancelAnimationFrame(inputAnimFrameRef.current);
+      cancelAnimationFrame(progressAnimFrameRef.current);
       mediaStreamRef.current?.getTracks().forEach(t => t.stop());
     };
-  }, [startInputMonitor]);
+  }, []);
 
   return {
     tracks,
     loopProgress,
     isLooping,
     inputLevel,
+    micReady,
     drumState,
     drumPatterns,
     handlePadPress,
@@ -404,6 +396,6 @@ export function useAudioEngine() {
     setDrumPattern,
     setDrumBpm,
     setDrumBars,
-    loopDuration: loopDurationRef.current,
+    initMic,
   };
 }

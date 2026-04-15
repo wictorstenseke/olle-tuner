@@ -47,7 +47,12 @@ body {
   letter-spacing: 2px;
 }
 
-.tuner-btn {
+.top-bar-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.top-btn {
   background: linear-gradient(180deg, #333 0%, #222 100%);
   border: 1px solid #444;
   color: #ccc;
@@ -58,11 +63,28 @@ body {
   letter-spacing: 1px;
   cursor: pointer;
   box-shadow: 0 2px 4px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05);
+  position: relative;
 }
 
-.tuner-btn:active {
+.top-btn:active {
   transform: translateY(1px);
   box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+
+.top-btn.active {
+  border-color: #00ff44;
+  color: #00ff44;
+}
+
+.top-btn-dot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #00ff44;
+  box-shadow: 0 0 6px #00ff44;
 }
 
 /* === INPUT METER === */
@@ -96,7 +118,7 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 16px 0;
+  padding: 12px 0;
   flex-shrink: 0;
 }
 
@@ -106,10 +128,10 @@ body {
 
 /* === TRACK PADS === */
 .pads-section {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-  padding: 0 16px;
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  padding: 0 20px;
   flex-shrink: 0;
 }
 
@@ -117,70 +139,120 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  width: clamp(120px, 18vw, 200px);
+  height: clamp(150px, 25vw, 240px);
 }
 
 .track-led {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   transition: all 0.2s;
 }
 
 .track-pad {
   width: 100%;
-  aspect-ratio: 1.6;
-  background: linear-gradient(180deg, #2a2a2a 0%, #1a1a1a 40%, #222 100%);
-  border: 2px solid #333;
-  border-radius: 10px;
+  height: 100%;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.08s ease-out;
+  padding: 6px;
+  /* Rubber base — raised 3D look */
+  background: linear-gradient(180deg, #353535 0%, #1f1f1f 15%, #181818 85%, #0e0e0e 100%);
+  box-shadow:
+    /* Outer drop shadow */
+    0 8px 16px rgba(0,0,0,0.6),
+    0 4px 6px rgba(0,0,0,0.4),
+    /* Bottom edge highlight (3D depth) */
+    0 2px 0 #2a2a2a,
+    0 3px 0 #1a1a1a,
+    /* Subtle inner top highlight */
+    inset 0 1px 1px rgba(255,255,255,0.06);
+}
+
+.track-pad.pressed {
+  transform: translateY(3px);
+  box-shadow:
+    0 2px 4px rgba(0,0,0,0.6),
+    0 1px 2px rgba(0,0,0,0.4),
+    inset 0 2px 6px rgba(0,0,0,0.5);
+}
+
+/* Rubber surface inside the pad */
+.pad-surface {
+  width: 100%;
+  height: 100%;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #2e2e2e 0%, #1c1c1c 50%, #191919 100%);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  cursor: pointer;
-  transition: all 0.1s;
+  gap: 10px;
+  /* Rubber texture feel */
   box-shadow:
-    0 4px 8px rgba(0,0,0,0.4),
-    inset 0 1px 0 rgba(255,255,255,0.05),
-    inset 0 -2px 4px rgba(0,0,0,0.3);
+    inset 0 2px 4px rgba(0,0,0,0.4),
+    inset 0 -1px 2px rgba(255,255,255,0.03);
 }
 
-.track-pad.pressed {
-  transform: scale(0.97);
-  box-shadow:
-    0 1px 2px rgba(0,0,0,0.4),
-    inset 0 2px 4px rgba(0,0,0,0.5);
+/* Grip lines — like real rubber footswitches */
+.pad-grip-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+}
+
+.grip-line {
+  width: 50px;
+  height: 2px;
+  border-radius: 1px;
+  background: linear-gradient(90deg, transparent 0%, #333 20%, #3a3a3a 50%, #333 80%, transparent 100%);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.5);
+}
+
+.track-pad.recording .grip-line {
+  background: linear-gradient(90deg, transparent 0%, #ff222244 20%, #ff222266 50%, #ff222244 80%, transparent 100%);
+}
+
+.track-pad.playing .grip-line {
+  background: linear-gradient(90deg, transparent 0%, #00ff4433 20%, #00ff4455 50%, #00ff4433 80%, transparent 100%);
+}
+
+.track-pad.muted .grip-line {
+  background: linear-gradient(90deg, transparent 0%, #ff880033 20%, #ff880044 50%, #ff880033 80%, transparent 100%);
 }
 
 .track-pad.recording {
   animation: recordPulse 0.8s ease-in-out infinite;
-  border-color: #ff2222;
 }
 
 @keyframes recordPulse {
-  0%, 100% { box-shadow: 0 4px 8px rgba(0,0,0,0.4), 0 0 15px rgba(255, 34, 34, 0.3); }
-  50% { box-shadow: 0 4px 8px rgba(0,0,0,0.4), 0 0 30px rgba(255, 34, 34, 0.6); }
+  0%, 100% {
+    box-shadow: 0 8px 16px rgba(0,0,0,0.6), 0 4px 6px rgba(0,0,0,0.4), 0 2px 0 #2a2a2a, 0 3px 0 #1a1a1a, 0 0 20px rgba(255,34,34,0.2);
+  }
+  50% {
+    box-shadow: 0 8px 16px rgba(0,0,0,0.6), 0 4px 6px rgba(0,0,0,0.4), 0 2px 0 #2a2a2a, 0 3px 0 #1a1a1a, 0 0 40px rgba(255,34,34,0.4);
+  }
 }
 
 .track-pad.playing {
-  border-color: #00ff44;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.4), 0 0 12px rgba(0, 255, 68, 0.2);
+  box-shadow:
+    0 8px 16px rgba(0,0,0,0.6),
+    0 4px 6px rgba(0,0,0,0.4),
+    0 2px 0 #2a2a2a,
+    0 3px 0 #1a1a1a,
+    0 0 15px rgba(0,255,68,0.15);
 }
 
 .track-pad.muted {
-  border-color: #555;
-  opacity: 0.6;
-}
-
-.track-pad-number {
-  font-size: 10px;
-  color: #666;
-  letter-spacing: 2px;
+  opacity: 0.7;
 }
 
 .track-pad-label {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: bold;
   letter-spacing: 1px;
 }
@@ -190,7 +262,7 @@ body {
   border: 1px solid #444;
   color: #666;
   font-size: 10px;
-  padding: 2px 8px;
+  padding: 3px 10px;
   border-radius: 4px;
   cursor: pointer;
   font-family: inherit;
@@ -201,49 +273,73 @@ body {
   color: #ff3333;
 }
 
-/* === BOTTOM SECTION === */
-.bottom-section {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  padding: 16px;
-  gap: 12px;
-  overflow-y: auto;
+/* === STOP ALL pad === */
+.track-pad.stop-all {
+  background: linear-gradient(180deg, #352020 0%, #1f1010 15%, #180c0c 85%, #0e0505 100%);
 }
 
-/* === DRUM PICKER === */
-.drum-picker {
-  background: linear-gradient(180deg, #1e1e1e 0%, #161616 100%);
-  border: 1px solid #333;
-  border-radius: 10px;
-  padding: 12px;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+.track-pad.stop-all .pad-surface {
+  background: linear-gradient(180deg, #2e1a1a 0%, #1c0f0f 50%, #190c0c 100%);
 }
 
-.drum-picker-header {
+/* === MODAL SHARED === */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
+  justify-content: center;
+  z-index: 100;
+  backdrop-filter: blur(8px);
 }
 
-.drum-picker-title {
-  font-size: 11px;
+.drums-modal {
+  background: linear-gradient(170deg, #1e1e1e 0%, #111 100%);
+  border: 1px solid #333;
+  border-radius: 16px;
+  padding: 24px;
+  width: 90%;
+  max-width: 380px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.modal-title {
+  font-size: 12px;
   color: #888;
   letter-spacing: 2px;
 }
 
-.drum-picker-led {
-  width: 8px;
-  height: 8px;
+.modal-close {
+  background: none;
+  border: 1px solid #444;
+  color: #666;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  transition: all 0.2s;
+  cursor: pointer;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+/* === DRUM PICKER === */
+.drum-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .drum-picker-controls {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 14px;
 }
 
 .drum-picker-row {
@@ -253,7 +349,7 @@ body {
 }
 
 .drum-picker-row label {
-  font-size: 10px;
+  font-size: 12px;
   color: #666;
   letter-spacing: 1px;
 }
@@ -262,10 +358,10 @@ body {
   background: #222;
   border: 1px solid #444;
   color: #ccc;
-  padding: 6px 10px;
-  border-radius: 4px;
+  padding: 10px 14px;
+  border-radius: 6px;
   font-family: inherit;
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .drum-bpm-control, .drum-bars-control {
@@ -278,10 +374,10 @@ body {
   background: linear-gradient(180deg, #333 0%, #222 100%);
   border: 1px solid #444;
   color: #ccc;
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  font-size: 16px;
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  font-size: 20px;
   cursor: pointer;
   font-family: inherit;
   box-shadow: 0 2px 4px rgba(0,0,0,0.3);
@@ -298,23 +394,23 @@ body {
 }
 
 .drum-bpm-value {
-  font-size: 16px;
+  font-size: 20px;
   font-weight: bold;
   color: #fff;
-  min-width: 40px;
+  min-width: 48px;
   text-align: center;
 }
 
 .drum-toggle {
   width: 100%;
-  padding: 12px;
+  padding: 14px;
   margin-top: 10px;
   background: linear-gradient(180deg, #333 0%, #222 100%);
   border: 1px solid #444;
   border-radius: 8px;
   color: #ccc;
   font-family: inherit;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: bold;
   letter-spacing: 2px;
   cursor: pointer;
@@ -328,25 +424,6 @@ body {
 .drum-toggle.active {
   border-color: #00ff44;
   color: #00ff44;
-}
-
-/* === STOP ALL === */
-.stop-all-btn {
-  padding: 14px;
-  background: linear-gradient(180deg, #2a1515 0%, #1a0a0a 100%);
-  border: 1px solid #ff333366;
-  border-radius: 8px;
-  color: #ff3333;
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: bold;
-  letter-spacing: 2px;
-  cursor: pointer;
-  box-shadow: 0 3px 6px rgba(0,0,0,0.3);
-}
-
-.stop-all-btn:active {
-  transform: translateY(1px);
 }
 
 /* === TUNER MODAL === */
@@ -521,13 +598,32 @@ body {
 }
 
 @media (min-width: 768px) {
+  .track-pad-wrapper {
+    width: 180px;
+    height: 220px;
+  }
+
   .pads-section {
-    grid-template-columns: repeat(4, 1fr);
-    max-width: 600px;
-    margin: 0 auto;
+    gap: 20px;
+  }
+
+  .grip-line {
+    width: 70px;
   }
 
   .ring-section {
-    padding: 24px 0;
+    padding: 20px 0;
+  }
+}
+
+@media (max-width: 600px) {
+  .pads-section {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .track-pad-wrapper {
+    width: calc(33% - 10px);
+    height: 140px;
   }
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
@@ -33,6 +33,7 @@ function autoCorrelate(buf: Float32Array, sampleRate: number): number {
 
   buf = buf.slice(r1, r2);
   size = buf.length;
+  if (size < 2) return -1;
 
   const c = new Float32Array(size);
   for (let i = 0; i < size; i++) {
@@ -42,7 +43,7 @@ function autoCorrelate(buf: Float32Array, sampleRate: number): number {
   }
 
   let d = 0;
-  while (c[d] > c[d + 1]) d++;
+  while (d < size - 1 && c[d] > c[d + 1]) d++;
 
   let maxval = -1;
   let maxpos = -1;
@@ -52,6 +53,8 @@ function autoCorrelate(buf: Float32Array, sampleRate: number): number {
       maxpos = i;
     }
   }
+
+  if (maxpos < 1 || maxpos >= size - 1) return -1;
 
   let T0 = maxpos;
 
@@ -102,73 +105,80 @@ export interface TunerData {
   active: boolean;
 }
 
+const DEFAULT_TUNER_DATA: TunerData = { note: '-', octave: 0, cents: 0, frequency: 0, closestString: -1, active: false };
+
 export function useTuner(isOpen: boolean) {
-  const [tunerData, setTunerData] = useState<TunerData>({
-    note: '-',
-    octave: 0,
-    cents: 0,
-    frequency: 0,
-    closestString: -1,
-    active: false,
-  });
+  const [tunerData, setTunerData] = useState<TunerData>(DEFAULT_TUNER_DATA);
 
   const audioContextRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const animFrameRef = useRef<number>(0);
-
-  const start = useCallback(async () => {
-    const ctx = new AudioContext();
-    audioContextRef.current = ctx;
-
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaStreamRef.current = stream;
-
-    const source = ctx.createMediaStreamSource(stream);
-    const analyser = ctx.createAnalyser();
-    analyser.fftSize = 4096;
-    source.connect(analyser);
-    analyserRef.current = analyser;
-
-    const buf = new Float32Array(analyser.fftSize);
-
-    const detect = () => {
-      analyser.getFloatTimeDomainData(buf);
-      const freq = autoCorrelate(buf, ctx.sampleRate);
-
-      if (freq > 0 && freq < 1000) {
-        const noteData = frequencyToNote(freq);
-        const closestString = findClosestString(freq);
-        setTunerData({
-          ...noteData,
-          closestString,
-          active: true,
-        });
-      } else {
-        setTunerData(prev => ({ ...prev, active: false }));
-      }
-
-      animFrameRef.current = requestAnimationFrame(detect);
-    };
-    detect();
-  }, []);
-
-  const stop = useCallback(() => {
-    cancelAnimationFrame(animFrameRef.current);
-    mediaStreamRef.current?.getTracks().forEach(t => t.stop());
-    audioContextRef.current?.close();
-    audioContextRef.current = null;
-    setTunerData({ note: '-', octave: 0, cents: 0, frequency: 0, closestString: -1, active: false });
-  }, []);
+  const runningRef = useRef(false);
 
   useEffect(() => {
-    if (isOpen) {
-      start();
-    } else {
-      stop();
+    if (!isOpen) return;
+
+    let cancelled = false;
+
+    async function startTuner() {
+      try {
+        const ctx = new AudioContext();
+        if (cancelled) { ctx.close(); return; }
+        audioContextRef.current = ctx;
+
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        if (cancelled) { stream.getTracks().forEach(t => t.stop()); ctx.close(); return; }
+        mediaStreamRef.current = stream;
+
+        const source = ctx.createMediaStreamSource(stream);
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 4096;
+        source.connect(analyser);
+
+        runningRef.current = true;
+        const buf = new Float32Array(analyser.fftSize);
+
+        const detect = () => {
+          if (!runningRef.current || cancelled) return;
+
+          analyser.getFloatTimeDomainData(buf);
+          const freq = autoCorrelate(buf, ctx.sampleRate);
+
+          if (freq > 0 && freq < 1000) {
+            const noteData = frequencyToNote(freq);
+            const closestString = findClosestString(freq);
+            setTunerData({
+              ...noteData,
+              closestString,
+              active: true,
+            });
+          } else {
+            setTunerData(prev => ({ ...prev, active: false }));
+          }
+
+          animFrameRef.current = requestAnimationFrame(detect);
+        };
+        detect();
+      } catch (err) {
+        console.error('Tuner mic access failed:', err);
+      }
     }
-    return () => stop();
-  }, [isOpen, start, stop]);
+
+    startTuner();
+
+    return () => {
+      cancelled = true;
+      runningRef.current = false;
+      cancelAnimationFrame(animFrameRef.current);
+      mediaStreamRef.current?.getTracks().forEach(t => t.stop());
+      mediaStreamRef.current = null;
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+        audioContextRef.current = null;
+      }
+      setTunerData(DEFAULT_TUNER_DATA);
+    };
+  }, [isOpen]);
 
   return { tunerData, guitarStrings: GUITAR_STRINGS };
 }

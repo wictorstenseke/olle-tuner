@@ -7,9 +7,9 @@ interface Props {
 }
 
 export function LoopRing({ progress, isLooping, tracks }: Props) {
-  const size = 220;
+  const size = 160;
   const center = size / 2;
-  const radius = 90;
+  const radius = 62;
   const strokeWidth = 8;
 
   const angle = progress * 360 - 90;
