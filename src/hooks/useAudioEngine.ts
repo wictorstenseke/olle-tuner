@@ -35,6 +35,7 @@ export function useAudioEngine() {
   const [bpm, setBpmState] = useState(100);
   const [countInBeat, setCountInBeat] = useState<number | null>(null);
   const [queuedTrackId, setQueuedTrackId] = useState<number | null>(null);
+  const [recordingMode, setRecordingMode] = useState<'bars' | 'manual'>('bars');
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
@@ -52,6 +53,8 @@ export function useAudioEngine() {
   const tracksRef = useRef(tracks);
   tracksRef.current = tracks;
   const bpmRef = useRef(100);
+  const recordingModeRef = useRef<'bars' | 'manual'>('bars');
+  recordingModeRef.current = recordingMode;
   const countingInTrackRef = useRef<number | null>(null);
   const countInTimersRef = useRef<number[]>([]);
   const recordingTimerRef = useRef<number | null>(null);
@@ -259,8 +262,8 @@ export function useAudioEngine() {
     }
     if (!mediaStreamRef.current) return; // mic denied
 
-    // Set loop duration from BPM if not already set
-    if (loopDurationRef.current <= 0) {
+    // Set loop duration from BPM if not already set (bars mode only for first recording)
+    if (loopDurationRef.current <= 0 && recordingModeRef.current === 'bars') {
       loopDurationRef.current = 960 / bpmRef.current; // 4 bars (16 beats) in seconds
     }
 
@@ -289,6 +292,11 @@ export function useAudioEngine() {
         const arrayBuffer = await blob.arrayBuffer();
         const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
 
+        // In manual mode, first recording sets loop duration from actual length
+        if (loopDurationRef.current <= 0) {
+          loopDurationRef.current = audioBuffer.duration;
+        }
+
         const tid = recordingTrackRef.current!;
 
         setTracks(prev => prev.map(t =>
@@ -304,13 +312,15 @@ export function useAudioEngine() {
         t.id === trackId ? { ...t, state: 'recording' as TrackState } : t
       ));
 
-      // Auto-stop after loop duration
-      recordingTimerRef.current = window.setTimeout(() => {
-        if (recorderRef.current && recorderRef.current.state === 'recording') {
-          recorderRef.current.stop();
-        }
-        recordingTimerRef.current = null;
-      }, loopDurationRef.current * 1000);
+      // Auto-stop after loop duration (only in bars mode, or if loop already set)
+      if (loopDurationRef.current > 0) {
+        recordingTimerRef.current = window.setTimeout(() => {
+          if (recorderRef.current && recorderRef.current.state === 'recording') {
+            recorderRef.current.stop();
+          }
+          recordingTimerRef.current = null;
+        }, loopDurationRef.current * 1000);
+      }
     };
 
     if (loopStartTimeRef.current > 0) {
@@ -537,5 +547,7 @@ export function useAudioEngine() {
     setDrumBpm,
     setDrumBars,
     initMic,
+    recordingMode,
+    setRecordingMode,
   };
 }

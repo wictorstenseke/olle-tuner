@@ -59,6 +59,12 @@ function App() {
             </div>
           )}
         </div>
+        <button
+          className="ctrl-btn"
+          onClick={() => engine.setRecordingMode(engine.recordingMode === 'bars' ? 'manual' : 'bars')}
+        >
+          {engine.recordingMode === 'bars' ? '4 BAR' : 'FREE'}
+        </button>
         <button className="ctrl-btn" onClick={() => setTunerOpen(true)}>
           TUNER
         </button>
