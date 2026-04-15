@@ -4,11 +4,9 @@ interface Props {
   patterns: DrumPattern[];
   currentIndex: number;
   bpm: number;
-  bars: number;
   active: boolean;
   onSelectPattern: (index: number) => void;
   onSetBpm: (bpm: number) => void;
-  onSetBars: (bars: number) => void;
   onStart: () => void;
   onStop: () => void;
 }
@@ -17,11 +15,9 @@ export function DrumPicker({
   patterns,
   currentIndex,
   bpm,
-  bars,
   active,
   onSelectPattern,
   onSetBpm,
-  onSetBars,
   onStart,
   onStop,
 }: Props) {
@@ -50,21 +46,6 @@ export function DrumPicker({
           </div>
         </div>
 
-        <div className="drum-picker-row">
-          <label>BARS</label>
-          <div className="drum-bars-control">
-            {[1, 2, 4].map(b => (
-              <button
-                key={b}
-                className={bars === b ? 'active' : ''}
-                onClick={() => onSetBars(b)}
-                disabled={active}
-              >
-                {b}
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
 
       <button

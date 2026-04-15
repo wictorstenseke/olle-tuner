@@ -32,6 +32,9 @@ export function useAudioEngine() {
     bpm: 120,
     bars: 2,
   });
+  const [bpm, setBpmState] = useState(100);
+  const [countInBeat, setCountInBeat] = useState<number | null>(null);
+  const [queuedTrackId, setQueuedTrackId] = useState<number | null>(null);
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
@@ -49,6 +52,10 @@ export function useAudioEngine() {
   const drumSourcesRef = useRef<AudioBufferSourceNode[]>([]);
   const tracksRef = useRef(tracks);
   tracksRef.current = tracks;
+  const bpmRef = useRef(100);
+  const countingInTrackRef = useRef<number | null>(null);
+  const countInTimersRef = useRef<number[]>([]);
+  const recordingTimerRef = useRef<number | null>(null);
 
   const drumBuffersRef = useRef<Map<string, AudioBuffer>>(new Map());
 
@@ -99,6 +106,65 @@ export function useAudioEngine() {
     drumBuffersRef.current.set(name, buffer);
     return buffer;
   }, [getAudioContext]);
+
+  const setBpm = useCallback((newBpm: number) => {
+    const clamped = Math.max(40, Math.min(160, newBpm));
+    setBpmState(clamped);
+    bpmRef.current = clamped;
+  }, []);
+
+  const clickBufferRef = useRef<AudioBuffer | null>(null);
+
+  const getClickBuffer = useCallback(() => {
+    if (clickBufferRef.current) return clickBufferRef.current;
+    const ctx = getAudioContext();
+    const sampleRate = ctx.sampleRate;
+    const length = Math.floor(sampleRate * 0.03);
+    const buffer = ctx.createBuffer(1, length, sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < length; i++) {
+      const t = i / sampleRate;
+      const env = Math.exp(-t * 150);
+      data[i] = Math.sin(2 * Math.PI * 1000 * t) * env * 0.5;
+    }
+    clickBufferRef.current = buffer;
+    return buffer;
+  }, [getAudioContext]);
+
+  const playClick = useCallback(() => {
+    const ctx = getAudioContext();
+    const source = ctx.createBufferSource();
+    source.buffer = getClickBuffer();
+    source.connect(ctx.destination);
+    source.start();
+  }, [getAudioContext, getClickBuffer]);
+
+  const startCountIn = useCallback((trackId: number, onComplete: () => void) => {
+    const beatMs = 60000 / bpmRef.current;
+    countingInTrackRef.current = trackId;
+
+    setCountInBeat(1);
+    playClick();
+    const timers: number[] = [];
+    timers.push(window.setTimeout(() => { setCountInBeat(2); playClick(); }, beatMs));
+    timers.push(window.setTimeout(() => { setCountInBeat(3); playClick(); }, beatMs * 2));
+    timers.push(window.setTimeout(() => { setCountInBeat(4); playClick(); }, beatMs * 3));
+    timers.push(window.setTimeout(() => {
+      setCountInBeat(null);
+      countingInTrackRef.current = null;
+      onComplete();
+    }, beatMs * 4));
+
+    countInTimersRef.current = timers;
+  }, [playClick]);
+
+  const cancelCountIn = useCallback(() => {
+    countInTimersRef.current.forEach(t => clearTimeout(t));
+    countInTimersRef.current = [];
+    countingInTrackRef.current = null;
+    setCountInBeat(null);
+    setQueuedTrackId(null);
+  }, []);
 
   // Request mic access — called on first user interaction
   const initMic = useCallback(async () => {
@@ -194,45 +260,85 @@ export function useAudioEngine() {
     }
     if (!mediaStreamRef.current) return; // mic denied
 
-    chunksRef.current = [];
-    recordingTrackRef.current = trackId;
+    // Set loop duration from BPM if not already set
+    if (loopDurationRef.current <= 0) {
+      loopDurationRef.current = 960 / bpmRef.current; // 4 bars (16 beats) in seconds
+    }
 
-    const recorder = new MediaRecorder(mediaStreamRef.current);
-    recorderRef.current = recorder;
+    const doRecord = () => {
+      if (!mediaStreamRef.current) return;
 
-    recorder.ondataavailable = (e) => {
-      if (e.data.size > 0) chunksRef.current.push(e.data);
-    };
+      chunksRef.current = [];
+      recordingTrackRef.current = trackId;
 
-    recorder.onstop = async () => {
-      const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-      const arrayBuffer = await blob.arrayBuffer();
-      const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+      const recorder = new MediaRecorder(mediaStreamRef.current);
+      recorderRef.current = recorder;
 
-      const tid = recordingTrackRef.current!;
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
 
-      if (loopDurationRef.current <= 0) {
-        loopDurationRef.current = audioBuffer.duration;
+      // Start progress animation immediately so user sees bar fill during recording
+      if (loopStartTimeRef.current <= 0) {
         loopStartTimeRef.current = ctx.currentTime;
         setIsLooping(true);
         startProgressLoop();
       }
 
+      recorder.onstop = async () => {
+        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        const arrayBuffer = await blob.arrayBuffer();
+        const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+
+        const tid = recordingTrackRef.current!;
+
+        setTracks(prev => prev.map(t =>
+          t.id === tid ? { ...t, state: 'playing' as TrackState, buffer: audioBuffer } : t
+        ));
+
+        playTrackLoop(tid, audioBuffer);
+        recordingTrackRef.current = null;
+      };
+
+      recorder.start();
       setTracks(prev => prev.map(t =>
-        t.id === tid ? { ...t, state: 'playing' as TrackState, buffer: audioBuffer } : t
+        t.id === trackId ? { ...t, state: 'recording' as TrackState } : t
       ));
 
-      playTrackLoop(tid, audioBuffer);
-      recordingTrackRef.current = null;
+      // Auto-stop after loop duration
+      recordingTimerRef.current = window.setTimeout(() => {
+        if (recorderRef.current && recorderRef.current.state === 'recording') {
+          recorderRef.current.stop();
+        }
+        recordingTimerRef.current = null;
+      }, loopDurationRef.current * 1000);
     };
 
-    recorder.start();
-    setTracks(prev => prev.map(t =>
-      t.id === trackId ? { ...t, state: 'recording' as TrackState } : t
-    ));
-  }, [getAudioContext, initMic, playTrackLoop, startProgressLoop]);
+    if (loopStartTimeRef.current > 0) {
+      // Loop already running — queue recording for next bar 1
+      const elapsed = ctx.currentTime - loopStartTimeRef.current;
+      const position = elapsed % loopDurationRef.current;
+      const remainingMs = (loopDurationRef.current - position) * 1000;
+
+      countingInTrackRef.current = trackId;
+      setQueuedTrackId(trackId);
+      const timer = window.setTimeout(() => {
+        countingInTrackRef.current = null;
+        setQueuedTrackId(null);
+        doRecord();
+      }, remainingMs);
+      countInTimersRef.current = [timer];
+    } else {
+      // First recording — full count-in
+      startCountIn(trackId, doRecord);
+    }
+  }, [getAudioContext, initMic, playTrackLoop, startProgressLoop, startCountIn, playClick]);
 
   const stopRecording = useCallback(() => {
+    if (recordingTimerRef.current) {
+      clearTimeout(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
     if (recorderRef.current && recorderRef.current.state === 'recording') {
       recorderRef.current.stop();
     }
@@ -290,7 +396,11 @@ export function useAudioEngine() {
 
     switch (track.state) {
       case 'empty':
-        startRecording(trackId);
+        if (countingInTrackRef.current === trackId) {
+          cancelCountIn();
+        } else if (!countingInTrackRef.current) {
+          startRecording(trackId);
+        }
         break;
       case 'recording':
         stopRecording();
@@ -300,45 +410,66 @@ export function useAudioEngine() {
         toggleMute(trackId);
         break;
     }
-  }, [startRecording, stopRecording, toggleMute]);
+  }, [startRecording, stopRecording, toggleMute, cancelCountIn]);
 
-  // Drum machine — loops independently, does NOT set master loop
+  // Drum machine — synced to loop via AudioContext scheduling
+  const drumAnimRef = useRef<number>(0);
+  const drumLastStepRef = useRef<number>(-1);
+
   const startDrums = useCallback(() => {
     const ctx = getAudioContext();
+
+    // If no loop running, start one
+    if (loopDurationRef.current <= 0) {
+      loopDurationRef.current = 960 / bpmRef.current;
+    }
+    if (loopStartTimeRef.current <= 0) {
+      loopStartTimeRef.current = ctx.currentTime;
+      setIsLooping(true);
+      startProgressLoop();
+    }
+
+    drumLastStepRef.current = -1;
     const pattern = drumPatterns[drumState.patternIndex];
-    const stepDuration = 60 / drumState.bpm / 4;
-    const totalSteps = pattern.steps * drumState.bars;
+    const stepsPerBeat = pattern.steps / 4; // steps per beat (usually 4 for 16-step)
 
-    let step = 0;
-    const scheduleStep = () => {
-      const currentStep = step % pattern.steps;
+    const scheduleDrums = () => {
+      const elapsed = ctx.currentTime - loopStartTimeRef.current;
+      const loopPos = elapsed % loopDurationRef.current;
+      const beatDuration = 60 / bpmRef.current;
+      const stepDuration = beatDuration / stepsPerBeat;
+      // 4 bars = 16 beats total, each bar = pattern.steps steps
+      const totalStepsInLoop = pattern.steps * 4;
+      const currentStep = Math.floor(loopPos / stepDuration) % totalStepsInLoop;
+      const patternStep = currentStep % pattern.steps;
 
-      pattern.tracks.forEach(track => {
-        if (track.pattern[currentStep]) {
-          const buffer = getDrumBuffer(track.name);
-          const source = ctx.createBufferSource();
-          source.buffer = buffer;
-          source.connect(ctx.destination);
-          source.start();
-          drumSourcesRef.current.push(source);
+      if (currentStep !== drumLastStepRef.current) {
+        drumLastStepRef.current = currentStep;
+        pattern.tracks.forEach(track => {
+          if (track.pattern[patternStep]) {
+            const buffer = getDrumBuffer(track.name);
+            const source = ctx.createBufferSource();
+            source.buffer = buffer;
+            source.connect(ctx.destination);
+            source.start();
+            drumSourcesRef.current.push(source);
+          }
+        });
+        // Clean up old sources
+        if (drumSourcesRef.current.length > 50) {
+          drumSourcesRef.current = drumSourcesRef.current.slice(-20);
         }
-      });
-
-      step++;
-      if (step >= totalSteps) step = 0;
+      }
+      drumAnimRef.current = requestAnimationFrame(scheduleDrums);
     };
-
-    scheduleStep();
-    drumIntervalRef.current = window.setInterval(scheduleStep, stepDuration * 1000);
+    scheduleDrums();
 
     setDrumState(prev => ({ ...prev, active: true }));
-  }, [getAudioContext, drumState.patternIndex, drumState.bpm, drumState.bars, getDrumBuffer]);
+  }, [getAudioContext, drumState.patternIndex, getDrumBuffer, startProgressLoop]);
 
   const stopDrums = useCallback(() => {
-    if (drumIntervalRef.current) {
-      clearInterval(drumIntervalRef.current);
-      drumIntervalRef.current = null;
-    }
+    cancelAnimationFrame(drumAnimRef.current);
+    drumLastStepRef.current = -1;
     drumSourcesRef.current.forEach(s => { try { s.stop(); } catch { /* already stopped */ } });
     drumSourcesRef.current = [];
     setDrumState(prev => ({ ...prev, active: false }));
@@ -348,29 +479,35 @@ export function useAudioEngine() {
     setDrumState(prev => ({ ...prev, patternIndex: index }));
   }, []);
 
-  const setDrumBpm = useCallback((bpm: number) => {
-    setDrumState(prev => ({ ...prev, bpm }));
-  }, []);
+  const setDrumBpm = useCallback((newBpm: number) => {
+    setBpm(newBpm);
+  }, [setBpm]);
 
   const setDrumBars = useCallback((bars: number) => {
     setDrumState(prev => ({ ...prev, bars }));
   }, []);
 
   const stopAll = useCallback(() => {
-    sourceNodesRef.current.forEach((source) => {
-      try { source.stop(); } catch { /* already stopped */ }
-    });
-    sourceNodesRef.current.clear();
-    gainNodesRef.current.forEach(g => g.disconnect());
-    gainNodesRef.current.clear();
+    cancelCountIn();
+    if (recordingTimerRef.current) {
+      clearTimeout(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    if (recorderRef.current && recorderRef.current.state === 'recording') {
+      recorderRef.current.stop();
+    }
     stopDrums();
+    // Mute all playing tracks instead of clearing
+    gainNodesRef.current.forEach(g => { g.gain.value = 0; });
     cancelAnimationFrame(progressAnimFrameRef.current);
-    loopDurationRef.current = 0;
-    loopStartTimeRef.current = 0;
     setIsLooping(false);
     setLoopProgress(0);
-    setTracks(prev => prev.map(t => ({ ...t, state: 'empty' as TrackState, buffer: null })));
-  }, [stopDrums]);
+    setTracks(prev => prev.map(t =>
+      t.state === 'playing' || t.state === 'muted'
+        ? { ...t, state: 'muted' as TrackState }
+        : t
+    ));
+  }, [stopDrums, cancelCountIn]);
 
   useEffect(() => {
     return () => {
@@ -386,11 +523,15 @@ export function useAudioEngine() {
     isLooping,
     inputLevel,
     micReady,
+    bpm,
+    countInBeat,
+    queuedTrackId,
     drumState,
     drumPatterns,
     handlePadPress,
     deleteTrack,
     stopAll,
+    setBpm,
     startDrums,
     stopDrums,
     setDrumPattern,

@@ -1,19 +1,69 @@
-import { useState } from 'react';
-import { LoopRing } from './components/LoopRing';
+import { useState, useRef, useEffect } from 'react';
+import { BeatProgressBar } from './components/BeatProgressBar';
 import { InputMeter } from './components/InputMeter';
 import { TrackPad } from './components/TrackPad';
-import { DrumPicker } from './components/DrumPicker';
 import { TunerModal } from './components/TunerModal';
 import { useAudioEngine } from './hooks/useAudioEngine';
 import './App.css';
 
 function App() {
   const [tunerOpen, setTunerOpen] = useState(false);
-  const [drumsOpen, setDrumsOpen] = useState(false);
+  const [drumsMenuOpen, setDrumsMenuOpen] = useState(false);
+  const drumsMenuRef = useRef<HTMLDivElement>(null);
   const engine = useAudioEngine();
+
+  // Close drums menu on outside click
+  useEffect(() => {
+    if (!drumsMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (drumsMenuRef.current && !drumsMenuRef.current.contains(e.target as Node)) {
+        setDrumsMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [drumsMenuOpen]);
 
   return (
     <div className="pedalboard">
+      {/* Top-right controls */}
+      <div className="top-controls">
+        <div className="drums-menu-wrapper" ref={drumsMenuRef}>
+          <button
+            className={`ctrl-btn ${engine.drumState.active ? 'active' : ''}`}
+            onClick={() => setDrumsMenuOpen(prev => !prev)}
+          >
+            DRUMS
+            {engine.drumState.active && <span className="ctrl-btn-dot" />}
+          </button>
+          {drumsMenuOpen && (
+            <div className="drums-context-menu">
+              <select
+                value={engine.drumState.patternIndex}
+                onChange={(e) => engine.setDrumPattern(Number(e.target.value))}
+                disabled={engine.drumState.active}
+              >
+                {engine.drumPatterns.map((p, i) => (
+                  <option key={i} value={i}>{p.name}</option>
+                ))}
+              </select>
+              <button
+                className={`drum-play-btn ${engine.drumState.active ? 'active' : ''}`}
+                onClick={() => {
+                  if (engine.drumState.active) engine.stopDrums();
+                  else engine.startDrums();
+                }}
+              >
+                {engine.drumState.active ? '■ STOP' : '▶ PLAY'}
+              </button>
+            </div>
+          )}
+        </div>
+        <button className="ctrl-btn" onClick={() => setTunerOpen(true)}>
+          TUNER
+        </button>
+      </div>
+
       {/* Pad section — top area */}
       <div className="pad-area">
         <div className="pad-row">
@@ -22,6 +72,8 @@ function App() {
               <TrackPad
                 id={track.id}
                 state={track.state}
+                queued={engine.queuedTrackId === track.id}
+                barsRemaining={engine.queuedTrackId === track.id ? Math.max(1, 4 - Math.floor(engine.loopProgress * 4)) : 0}
                 onPress={() => engine.handlePadPress(track.id)}
                 onDelete={() => engine.deleteTrack(track.id)}
               />
@@ -47,56 +99,22 @@ function App() {
 
       {/* Control strip — bottom area */}
       <div className="control-strip">
-        <div className="control-left">
-          <div className="control-label">OLLE TUNER</div>
-        </div>
-
-        <div className="control-center">
-          <LoopRing
-            progress={engine.loopProgress}
-            isLooping={engine.isLooping}
-            tracks={engine.tracks}
-          />
+        <div className="bar-stack">
           <InputMeter level={engine.inputLevel} />
+          <BeatProgressBar
+            progress={engine.loopProgress}
+            isActive={engine.isLooping}
+            isRecording={engine.tracks.some(t => t.state === 'recording')}
+            countInBeat={engine.countInBeat}
+          />
         </div>
-
-        <div className="control-right">
-          <button
-            className={`ctrl-btn ${engine.drumState.active ? 'active' : ''}`}
-            onClick={() => setDrumsOpen(true)}
-          >
-            DRUMS
-            {engine.drumState.active && <span className="ctrl-btn-dot" />}
-          </button>
-          <button className="ctrl-btn" onClick={() => setTunerOpen(true)}>
-            TUNER
-          </button>
+        <div className="bpm-selector">
+          <span className="bpm-label-text">BPM</span>
+          <button className="bpm-btn" onClick={() => engine.setBpm(engine.bpm - 5)}>−</button>
+          <span className="bpm-value">{engine.bpm}</span>
+          <button className="bpm-btn" onClick={() => engine.setBpm(engine.bpm + 5)}>+</button>
         </div>
       </div>
-
-      {/* Drums modal */}
-      {drumsOpen && (
-        <div className="modal-overlay" onClick={() => setDrumsOpen(false)}>
-          <div className="drums-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <span className="modal-title">DRUM MACHINE</span>
-              <button className="modal-close" onClick={() => setDrumsOpen(false)}>✕</button>
-            </div>
-            <DrumPicker
-              patterns={engine.drumPatterns}
-              currentIndex={engine.drumState.patternIndex}
-              bpm={engine.drumState.bpm}
-              bars={engine.drumState.bars}
-              active={engine.drumState.active}
-              onSelectPattern={engine.setDrumPattern}
-              onSetBpm={engine.setDrumBpm}
-              onSetBars={engine.setDrumBars}
-              onStart={engine.startDrums}
-              onStop={engine.stopDrums}
-            />
-          </div>
-        </div>
-      )}
 
       {/* Tuner modal */}
       <TunerModal isOpen={tunerOpen} onClose={() => setTunerOpen(false)} />

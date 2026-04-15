@@ -5,6 +5,8 @@ import type { TrackState } from '../types';
 interface Props {
   id: number;
   state: TrackState;
+  queued: boolean;
+  barsRemaining: number;
   onPress: () => void;
   onDelete: () => void;
 }
@@ -30,7 +32,7 @@ const STATE_LABELS: Record<TrackState, string> = {
   muted: 'MUTED',
 };
 
-export function TrackPad({ state, onPress, onDelete }: Props) {
+export function TrackPad({ state, queued, barsRemaining, onPress, onDelete }: Props) {
   const [showDelete, setShowDelete] = useState(false);
   const [pressed, setPressed] = useState(false);
   const pressTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -57,16 +59,16 @@ export function TrackPad({ state, onPress, onDelete }: Props) {
     <div className="track-pad-wrapper">
       {/* LED strip */}
       <div
-        className="track-led"
+        className={`track-led${queued ? ' queued' : ''}`}
         style={{
-          backgroundColor: STATE_COLORS[state],
-          boxShadow: STATE_GLOW[state],
+          backgroundColor: queued ? '#ff8800' : STATE_COLORS[state],
+          boxShadow: queued ? '0 0 12px #ff8800' : STATE_GLOW[state],
         }}
       />
 
       {/* Rubber footswitch pad */}
       <button
-        className={`track-pad ${state} ${pressed ? 'pressed' : ''}`}
+        className={`track-pad ${state} ${pressed ? 'pressed' : ''} ${queued ? 'queued' : ''}`}
         onClick={handlePress}
       >
         <div className="pad-surface">
@@ -75,11 +77,15 @@ export function TrackPad({ state, onPress, onDelete }: Props) {
             <div className="grip-line" />
             <div className="grip-line" />
           </div>
-          {STATE_LABELS[state] && (
+          {queued ? (
+            <span className="track-pad-label queued-label" style={{ color: '#ff8800' }}>
+              {barsRemaining}
+            </span>
+          ) : STATE_LABELS[state] ? (
             <span className="track-pad-label" style={{ color: STATE_COLORS[state] }}>
               {STATE_LABELS[state]}
             </span>
-          )}
+          ) : null}
         </div>
       </button>
 
