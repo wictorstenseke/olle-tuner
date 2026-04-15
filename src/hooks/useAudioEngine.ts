@@ -48,7 +48,6 @@ export function useAudioEngine() {
   const sourceNodesRef = useRef<Map<number, AudioBufferSourceNode>>(new Map());
   const gainNodesRef = useRef<Map<number, GainNode>>(new Map());
   const analyserRef = useRef<AnalyserNode | null>(null);
-  const drumIntervalRef = useRef<number | null>(null);
   const drumSourcesRef = useRef<AudioBufferSourceNode[]>([]);
   const tracksRef = useRef(tracks);
   tracksRef.current = tracks;
