@@ -8,83 +8,349 @@
   user-select: none;
 }
 
-html, body, #root {
+html, body {
   height: 100%;
   overflow: hidden;
+  background: #0a0a0a;
+}
+
+#root {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 body {
   font-family: 'Courier New', monospace;
-  background: #111;
   color: #ccc;
 }
 
-.app {
+/* === PEDALBOARD BODY === */
+.pedalboard {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  height: 100dvh;
-  background: linear-gradient(170deg, #1a1a1a 0%, #0d0d0d 50%, #111 100%);
-  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  max-width: 1100px;
+  margin: 20px auto;
+  background: linear-gradient(180deg, #1c1c1c 0%, #161616 40%, #111 100%);
+  border-radius: 14px;
+  position: relative;
+  /* 3D thickness */
+  border: 2px solid #2a2a2a;
+  border-bottom: 5px solid #0a0a0a;
+  box-shadow:
+    /* Bottom edge = thickness */
+    0 6px 0 #080808,
+    0 8px 0 #050505,
+    /* Drop shadow */
+    0 12px 30px rgba(0,0,0,0.8),
+    0 4px 10px rgba(0,0,0,0.6),
+    /* Top bevel highlight */
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    /* Inner shadow for depth */
+    inset 0 -2px 6px rgba(0,0,0,0.3);
+  overflow: hidden;
+  width: 100%;
+  min-height: 500px;
+  max-height: calc(100dvh - 40px);
 }
 
-/* === TOP BAR === */
-.top-bar {
+@supports (padding: env(safe-area-inset-top)) {
+  .pedalboard {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+@media (max-height: 700px) {
+  .pedalboard {
+    margin: 0 auto;
+    border-radius: 0;
+    height: 100dvh;
+  }
+}
+
+/* === PAD AREA — top section === */
+.pad-area {
+  flex: 1;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  background: linear-gradient(180deg, #222 0%, #1a1a1a 100%);
-  border-bottom: 1px solid #333;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+  justify-content: center;
+  padding: 24px 16px;
+  background: linear-gradient(180deg, #181818 0%, #141414 100%);
 }
 
-.logo {
-  font-size: 14px;
-  font-weight: bold;
-  color: #00ff44;
-  text-shadow: 0 0 10px #00ff4466;
-  letter-spacing: 2px;
-}
-
-.top-bar-buttons {
+.pad-row {
   display: flex;
-  gap: 8px;
+  gap: 0;
+  width: 100%;
+  max-width: 1000px;
 }
 
-.top-btn {
-  background: linear-gradient(180deg, #333 0%, #222 100%);
-  border: 1px solid #444;
-  color: #ccc;
-  padding: 8px 14px;
-  border-radius: 6px;
-  font-family: inherit;
-  font-size: 11px;
-  letter-spacing: 1px;
-  cursor: pointer;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05);
+.pad-cell {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-right: 2px solid #c8740044;
+  padding: 12px 16px;
+}
+
+.pad-cell:last-child {
+  border-right: none;
+}
+
+/* === TRACK PADS — rubber feel === */
+.track-pad-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
   position: relative;
 }
 
-.top-btn:active {
+.track-led {
+  width: 95%;
+  height: 3px;
+  border-radius: 2px;
+  transition: all 0.2s;
+}
+
+.track-pad {
+  width: 100%;
+  aspect-ratio: 0.85;
+  border: none;
+  outline: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.06s ease-out;
+  padding: 4px;
+  /* Dark rubber body */
+  background: linear-gradient(180deg, #222 0%, #161616 20%, #111 80%, #0a0a0a 100%);
+  box-shadow:
+    /* 3D depth */
+    0 6px 12px rgba(0,0,0,0.7),
+    0 2px 4px rgba(0,0,0,0.5),
+    /* Edge highlights */
+    inset 0 1px 0 rgba(255,255,255,0.04),
+    inset 1px 0 0 rgba(255,255,255,0.02),
+    inset -1px 0 0 rgba(255,255,255,0.02),
+    /* Orange rim glow */
+    0 0 1px #c8740033;
+}
+
+.track-pad.pressed {
+  transform: translateY(2px) scale(0.99);
+  box-shadow:
+    0 2px 4px rgba(0,0,0,0.7),
+    0 1px 2px rgba(0,0,0,0.5),
+    inset 0 3px 8px rgba(0,0,0,0.6);
+}
+
+/* Rubber surface */
+.pad-surface {
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
+  background:
+    /* Rubber stipple texture */
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Crect width='4' height='4' fill='%23131313'/%3E%3Crect x='0' y='0' width='1' height='1' fill='%23161616' opacity='0.4'/%3E%3Crect x='2' y='2' width='1' height='1' fill='%23101010' opacity='0.5'/%3E%3C/svg%3E"),
+    linear-gradient(180deg, #1a1a1a 0%, #131313 40%, #101010 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  box-shadow:
+    inset 0 2px 6px rgba(0,0,0,0.5),
+    inset 0 -1px 2px rgba(255,255,255,0.02);
+}
+
+.pad-grip-lines {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.track-pad-label {
+  position: absolute;
+  bottom: 15%;
+}
+
+/* Grip lines */
+.pad-grip-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+
+/* positioned in .pad-surface above */
+
+.grip-line {
+  width: 60%;
+  height: 2px;
+  border-radius: 1px;
+  background: linear-gradient(90deg, transparent 0%, #2a2a2a 15%, #303030 50%, #2a2a2a 85%, transparent 100%);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.6);
+}
+
+/* State-specific grip colors */
+.track-pad.recording .grip-line {
+  background: linear-gradient(90deg, transparent 0%, #ff222244 15%, #ff222266 50%, #ff222244 85%, transparent 100%);
+}
+
+.track-pad.playing .grip-line {
+  background: linear-gradient(90deg, transparent 0%, #00ff4433 15%, #00ff4455 50%, #00ff4433 85%, transparent 100%);
+}
+
+.track-pad.muted .grip-line {
+  background: linear-gradient(90deg, transparent 0%, #ff880033 15%, #ff880044 50%, #ff880033 85%, transparent 100%);
+}
+
+.track-pad.recording {
+  animation: recordPulse 0.8s ease-in-out infinite;
+}
+
+@keyframes recordPulse {
+  0%, 100% {
+    box-shadow: 0 6px 12px rgba(0,0,0,0.7), 0 0 15px rgba(255,34,34,0.15);
+  }
+  50% {
+    box-shadow: 0 6px 12px rgba(0,0,0,0.7), 0 0 30px rgba(255,34,34,0.3);
+  }
+}
+
+.track-pad.playing {
+  animation: playPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes playPulse {
+  0%, 100% {
+    box-shadow: 0 6px 12px rgba(0,0,0,0.7), 0 0 12px rgba(0,255,68,0.1);
+  }
+  50% {
+    box-shadow: 0 6px 12px rgba(0,0,0,0.7), 0 0 25px rgba(0,255,68,0.25);
+  }
+}
+
+.track-pad.muted {
+  opacity: 0.65;
+}
+
+.track-pad-label {
+  font-size: 10px;
+  font-weight: bold;
+  letter-spacing: 1px;
+}
+
+.track-delete {
+  position: absolute;
+  bottom: -28px;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  color: #555;
+  font-size: 9px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.track-delete.confirm {
+  border-color: #ff3333;
+  color: #ff3333;
+}
+
+/* Stop all pad */
+.track-pad.stop-all {
+  background: linear-gradient(180deg, #251515 0%, #180c0c 20%, #120808 80%, #0a0404 100%);
+}
+
+.track-pad.stop-all .pad-surface {
+  background: linear-gradient(180deg, #1c1010 0%, #140c0c 40%, #100808 100%);
+}
+
+.track-pad.stop-all .grip-line {
+  background: linear-gradient(90deg, transparent 0%, #ff333322 15%, #ff333344 50%, #ff333322 85%, transparent 100%);
+}
+
+/* === CONTROL STRIP — bottom panel === */
+.control-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 20px;
+  background: linear-gradient(180deg, #0e0e0e 0%, #111 30%, #161616 100%);
+  border-top: 1px solid #2a2a2a;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.02), 0 -4px 12px rgba(0,0,0,0.4);
+  min-height: 100px;
+  flex-shrink: 0;
+}
+
+.control-left {
+  flex-shrink: 0;
+}
+
+.control-center {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.control-label {
+  font-size: 11px;
+  font-weight: bold;
+  color: #c87400;
+  letter-spacing: 3px;
+  text-shadow: 0 0 8px #c8740044;
+  white-space: nowrap;
+}
+
+.control-right {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Control buttons */
+.ctrl-btn {
+  background: linear-gradient(180deg, #2a2a2a 0%, #1a1a1a 100%);
+  border: 1px solid #333;
+  color: #999;
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 10px;
+  letter-spacing: 1px;
+  cursor: pointer;
+  position: relative;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+.ctrl-btn:active {
   transform: translateY(1px);
-  box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.4);
 }
 
-.top-btn.active {
-  border-color: #00ff44;
-  color: #00ff44;
+.ctrl-btn.active {
+  border-color: #c87400;
+  color: #c87400;
 }
 
-.top-btn-dot {
+.ctrl-btn-dot {
   position: absolute;
   top: 4px;
   right: 4px;
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: #00ff44;
-  box-shadow: 0 0 6px #00ff44;
+  background: #c87400;
+  box-shadow: 0 0 6px #c87400;
 }
 
 /* === INPUT METER === */
@@ -95,8 +361,8 @@ body {
 }
 
 .input-meter-label {
-  font-size: 9px;
-  color: #666;
+  font-size: 8px;
+  color: #555;
   letter-spacing: 1px;
 }
 
@@ -113,173 +379,17 @@ body {
   transition: background-color 0.05s;
 }
 
-/* === RING SECTION === */
+/* === LOOP RING === */
+.loop-ring-container {
+  position: relative;
+}
+
 .ring-section {
   display: flex;
   justify-content: center;
   align-items: center;
   padding: 12px 0;
   flex-shrink: 0;
-}
-
-.loop-ring-container {
-  position: relative;
-}
-
-/* === TRACK PADS === */
-.pads-section {
-  display: flex;
-  justify-content: center;
-  gap: 16px;
-  padding: 0 20px;
-  flex-shrink: 0;
-}
-
-.track-pad-wrapper {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  width: clamp(120px, 18vw, 200px);
-  height: clamp(150px, 25vw, 240px);
-}
-
-.track-led {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  transition: all 0.2s;
-}
-
-.track-pad {
-  width: 100%;
-  height: 100%;
-  border: none;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.08s ease-out;
-  padding: 6px;
-  /* Rubber base — raised 3D look */
-  background: linear-gradient(180deg, #353535 0%, #1f1f1f 15%, #181818 85%, #0e0e0e 100%);
-  box-shadow:
-    /* Outer drop shadow */
-    0 8px 16px rgba(0,0,0,0.6),
-    0 4px 6px rgba(0,0,0,0.4),
-    /* Bottom edge highlight (3D depth) */
-    0 2px 0 #2a2a2a,
-    0 3px 0 #1a1a1a,
-    /* Subtle inner top highlight */
-    inset 0 1px 1px rgba(255,255,255,0.06);
-}
-
-.track-pad.pressed {
-  transform: translateY(3px);
-  box-shadow:
-    0 2px 4px rgba(0,0,0,0.6),
-    0 1px 2px rgba(0,0,0,0.4),
-    inset 0 2px 6px rgba(0,0,0,0.5);
-}
-
-/* Rubber surface inside the pad */
-.pad-surface {
-  width: 100%;
-  height: 100%;
-  border-radius: 8px;
-  background: linear-gradient(180deg, #2e2e2e 0%, #1c1c1c 50%, #191919 100%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  /* Rubber texture feel */
-  box-shadow:
-    inset 0 2px 4px rgba(0,0,0,0.4),
-    inset 0 -1px 2px rgba(255,255,255,0.03);
-}
-
-/* Grip lines — like real rubber footswitches */
-.pad-grip-lines {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  align-items: center;
-}
-
-.grip-line {
-  width: 50px;
-  height: 2px;
-  border-radius: 1px;
-  background: linear-gradient(90deg, transparent 0%, #333 20%, #3a3a3a 50%, #333 80%, transparent 100%);
-  box-shadow: 0 1px 0 rgba(0,0,0,0.5);
-}
-
-.track-pad.recording .grip-line {
-  background: linear-gradient(90deg, transparent 0%, #ff222244 20%, #ff222266 50%, #ff222244 80%, transparent 100%);
-}
-
-.track-pad.playing .grip-line {
-  background: linear-gradient(90deg, transparent 0%, #00ff4433 20%, #00ff4455 50%, #00ff4433 80%, transparent 100%);
-}
-
-.track-pad.muted .grip-line {
-  background: linear-gradient(90deg, transparent 0%, #ff880033 20%, #ff880044 50%, #ff880033 80%, transparent 100%);
-}
-
-.track-pad.recording {
-  animation: recordPulse 0.8s ease-in-out infinite;
-}
-
-@keyframes recordPulse {
-  0%, 100% {
-    box-shadow: 0 8px 16px rgba(0,0,0,0.6), 0 4px 6px rgba(0,0,0,0.4), 0 2px 0 #2a2a2a, 0 3px 0 #1a1a1a, 0 0 20px rgba(255,34,34,0.2);
-  }
-  50% {
-    box-shadow: 0 8px 16px rgba(0,0,0,0.6), 0 4px 6px rgba(0,0,0,0.4), 0 2px 0 #2a2a2a, 0 3px 0 #1a1a1a, 0 0 40px rgba(255,34,34,0.4);
-  }
-}
-
-.track-pad.playing {
-  box-shadow:
-    0 8px 16px rgba(0,0,0,0.6),
-    0 4px 6px rgba(0,0,0,0.4),
-    0 2px 0 #2a2a2a,
-    0 3px 0 #1a1a1a,
-    0 0 15px rgba(0,255,68,0.15);
-}
-
-.track-pad.muted {
-  opacity: 0.7;
-}
-
-.track-pad-label {
-  font-size: 11px;
-  font-weight: bold;
-  letter-spacing: 1px;
-}
-
-.track-delete {
-  background: none;
-  border: 1px solid #444;
-  color: #666;
-  font-size: 10px;
-  padding: 3px 10px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-family: inherit;
-}
-
-.track-delete.confirm {
-  border-color: #ff3333;
-  color: #ff3333;
-}
-
-/* === STOP ALL pad === */
-.track-pad.stop-all {
-  background: linear-gradient(180deg, #352020 0%, #1f1010 15%, #180c0c 85%, #0e0505 100%);
-}
-
-.track-pad.stop-all .pad-surface {
-  background: linear-gradient(180deg, #2e1a1a 0%, #1c0f0f 50%, #190c0c 100%);
 }
 
 /* === MODAL SHARED === */
@@ -388,9 +498,9 @@ body {
 }
 
 .drum-bars-control button.active {
-  border-color: #00ff44;
-  color: #00ff44;
-  box-shadow: 0 0 8px rgba(0, 255, 68, 0.3);
+  border-color: #c87400;
+  color: #c87400;
+  box-shadow: 0 0 8px rgba(200,116,0,0.3);
 }
 
 .drum-bpm-value {
@@ -422,8 +532,8 @@ body {
 }
 
 .drum-toggle.active {
-  border-color: #00ff44;
-  color: #00ff44;
+  border-color: #c87400;
+  color: #c87400;
 }
 
 /* === TUNER MODAL === */
@@ -473,7 +583,6 @@ body {
   font-family: inherit;
 }
 
-/* String circles */
 .tuner-strings {
   display: flex;
   justify-content: center;
@@ -513,7 +622,6 @@ body {
   color: #555;
 }
 
-/* Note display */
 .tuner-note-display {
   text-align: center;
   margin-bottom: 20px;
@@ -531,7 +639,6 @@ body {
   vertical-align: super;
 }
 
-/* Cents meter */
 .tuner-cents-meter {
   text-align: center;
   margin-bottom: 16px;
@@ -586,44 +693,24 @@ body {
 }
 
 /* === RESPONSIVE === */
-@media (max-width: 380px) {
-  .pads-section {
-    gap: 8px;
-    padding: 0 10px;
-  }
-
-  .track-pad {
-    aspect-ratio: 1.4;
-  }
-}
-
-@media (min-width: 768px) {
-  .track-pad-wrapper {
-    width: 180px;
-    height: 220px;
-  }
-
-  .pads-section {
-    gap: 20px;
-  }
-
-  .grip-line {
-    width: 70px;
-  }
-
-  .ring-section {
-    padding: 20px 0;
-  }
-}
-
 @media (max-width: 600px) {
-  .pads-section {
+  .pad-row {
     flex-wrap: wrap;
-    gap: 12px;
   }
 
-  .track-pad-wrapper {
-    width: calc(33% - 10px);
-    height: 140px;
+  .pad-cell {
+    flex: 1 1 30%;
+  }
+
+  .control-strip {
+    padding: 8px 12px;
+    min-height: 80px;
+  }
+}
+
+@media (max-width: 380px) {
+  .ctrl-btn {
+    padding: 8px 10px;
+    font-size: 9px;
   }
 }

@@ -13,56 +13,63 @@ function App() {
   const engine = useAudioEngine();
 
   return (
-    <div className="app">
-      {/* Top bar */}
-      <div className="top-bar">
-        <div className="logo">OLLE TUNER</div>
-        <InputMeter level={engine.inputLevel} />
-        <div className="top-bar-buttons">
-          <button
-            className={`top-btn ${engine.drumState.active ? 'active' : ''}`}
-            onClick={() => setDrumsOpen(true)}
-          >
-            DRUMS
-            {engine.drumState.active && <span className="top-btn-dot" />}
-          </button>
-          <button className="top-btn" onClick={() => setTunerOpen(true)}>
-            TUNER
-          </button>
+    <div className="pedalboard">
+      {/* Pad section — top area */}
+      <div className="pad-area">
+        <div className="pad-row">
+          {engine.tracks.map((track) => (
+            <div className="pad-cell" key={track.id}>
+              <TrackPad
+                id={track.id}
+                state={track.state}
+                onPress={() => engine.handlePadPress(track.id)}
+                onDelete={() => engine.deleteTrack(track.id)}
+              />
+            </div>
+          ))}
+          <div className="pad-cell">
+            <div className="track-pad-wrapper">
+              <div className="track-led" style={{ backgroundColor: '#ff333366', boxShadow: '0 0 6px #ff333333' }} />
+              <button className="track-pad stop-all" onClick={engine.stopAll}>
+                <div className="pad-surface">
+                  <div className="pad-grip-lines">
+                    <div className="grip-line" />
+                    <div className="grip-line" />
+                    <div className="grip-line" />
+                  </div>
+                  <span className="track-pad-label" style={{ color: '#ff3333' }}>STOP</span>
+                </div>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Loop ring */}
-      <div className="ring-section">
-        <LoopRing
-          progress={engine.loopProgress}
-          isLooping={engine.isLooping}
-          tracks={engine.tracks}
-        />
-      </div>
+      {/* Control strip — bottom area */}
+      <div className="control-strip">
+        <div className="control-left">
+          <div className="control-label">OLLE TUNER</div>
+        </div>
 
-      {/* Track pads + stop all */}
-      <div className="pads-section">
-        {engine.tracks.map((track) => (
-          <TrackPad
-            key={track.id}
-            id={track.id}
-            state={track.state}
-            onPress={() => engine.handlePadPress(track.id)}
-            onDelete={() => engine.deleteTrack(track.id)}
+        <div className="control-center">
+          <LoopRing
+            progress={engine.loopProgress}
+            isLooping={engine.isLooping}
+            tracks={engine.tracks}
           />
-        ))}
-        <div className="track-pad-wrapper">
-          <div className="track-led" style={{ backgroundColor: '#ff3333', boxShadow: '0 0 8px #ff333366' }} />
-          <button className="track-pad stop-all" onClick={engine.stopAll}>
-            <div className="pad-surface">
-              <div className="pad-grip-lines">
-                <div className="grip-line" />
-                <div className="grip-line" />
-                <div className="grip-line" />
-              </div>
-              <span className="track-pad-label" style={{ color: '#ff3333' }}>■ STOP ALL</span>
-            </div>
+          <InputMeter level={engine.inputLevel} />
+        </div>
+
+        <div className="control-right">
+          <button
+            className={`ctrl-btn ${engine.drumState.active ? 'active' : ''}`}
+            onClick={() => setDrumsOpen(true)}
+          >
+            DRUMS
+            {engine.drumState.active && <span className="ctrl-btn-dot" />}
+          </button>
+          <button className="ctrl-btn" onClick={() => setTunerOpen(true)}>
+            TUNER
           </button>
         </div>
       </div>

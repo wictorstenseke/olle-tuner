@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { IconTrash } from '@tabler/icons-react';
 import type { TrackState } from '../types';
 
 interface Props {
@@ -54,7 +55,7 @@ export function TrackPad({ state, onPress, onDelete }: Props) {
 
   return (
     <div className="track-pad-wrapper">
-      {/* LED indicator */}
+      {/* LED strip */}
       <div
         className="track-led"
         style={{
@@ -88,7 +89,7 @@ export function TrackPad({ state, onPress, onDelete }: Props) {
           className={`track-delete ${showDelete ? 'confirm' : ''}`}
           onClick={handleDelete}
         >
-          {showDelete ? '✕ DELETE' : '✕'}
+          {showDelete ? <><IconTrash size={12} /> DELETE</> : <IconTrash size={12} />}
         </button>
       )}
     </div>
