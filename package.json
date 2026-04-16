@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "dev:https": "HTTPS=1 vite",
+    "certs": "mkdir -p .certs && mkcert -cert-file .certs/cert.pem -key-file .certs/key.pem localhost 127.0.0.1 ::1",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "typecheck": "tsc -b",

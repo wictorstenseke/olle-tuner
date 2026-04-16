@@ -25,22 +25,19 @@ const GUITAR_STRINGS = [
   { note: "E", octave: 4, freq: 329.63 },
 ];
 
-// Detection band covers guitar fundamentals + small margin.
-// Tight range helps suppress octave-harmonic false positives.
-const MIN_FREQ = 65; // just below E2 (82.41 Hz)
-const MAX_FREQ = 1100; // above high E4 (329.63 Hz) with harmonic headroom
+// Detection band covers guitar fundamentals + harmonic headroom.
+const MIN_FREQ = 60;
+const MAX_FREQ = 1200;
 
-// Stability gates
-const CLARITY_THRESHOLD = 0.9; // pitchy returns 0..1 (1 = perfectly periodic)
-const RMS_THRESHOLD = 0.01; // noise gate
+const CLARITY_THRESHOLD = 0.85; // pitchy returns 0..1 (1 = perfectly periodic)
 const HOLD_MS = 1200; // keep last reading on-screen this long after signal drops
-const MEDIAN_WINDOW = 5; // median over last N accepted frames
+const EMA_ALPHA = 0.06; // cents smoothing within a single note
 
 function frequencyToNote(freq: number) {
   // noteNum is semitones relative to A4 (440 Hz)
   const noteNum = 12 * Math.log2(freq / 440);
   const rounded = Math.round(noteNum);
-  const cents = Math.round((noteNum - rounded) * 100);
+  const cents = (noteNum - rounded) * 100;
   // A4 index in NOTE_NAMES is 9 — offset so A4 maps to 'A'
   const noteIndex = (((rounded + 9) % 12) + 12) % 12;
   const octave = Math.floor((rounded + 9) / 12) + 4;
@@ -59,11 +56,6 @@ function findClosestString(freq: number) {
     }
   });
   return closest;
-}
-
-function median(arr: number[]) {
-  const sorted = [...arr].sort((a, b) => a - b);
-  return sorted[Math.floor(sorted.length / 2)];
 }
 
 export interface TunerData {
@@ -91,7 +83,6 @@ export function useTuner(isOpen: boolean) {
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const rafRef = useRef<number>(0);
   const holdTimeoutRef = useRef<number | null>(null);
-  const historyRef = useRef<number[]>([]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -124,78 +115,64 @@ export function useTuner(isOpen: boolean) {
         }
         mediaStreamRef.current = stream;
 
+        // iOS/Android may suspend the context until user gesture.
+        if (ctx.state === "suspended") await ctx.resume();
+
         const source = ctx.createMediaStreamSource(stream);
-
-        // High-pass 60 Hz: kills mic rumble / handling noise, preserves E2 (82 Hz).
-        const hp = ctx.createBiquadFilter();
-        hp.type = "highpass";
-        hp.frequency.value = 60;
-        hp.Q.value = 0.7;
-
-        // Low-pass 1.5 kHz: attenuates upper harmonics that confuse MPM
-        // into picking an octave-up lag on plucked strings.
-        const lp = ctx.createBiquadFilter();
-        lp.type = "lowpass";
-        lp.frequency.value = 1500;
-        lp.Q.value = 0.7;
-
         const analyser = ctx.createAnalyser();
-        // 4096 samples @ 44.1 kHz ≈ 93 ms — enough for ~7 periods of low E2.
         analyser.fftSize = 4096;
-        analyser.smoothingTimeConstant = 0;
-
-        source.connect(hp);
-        hp.connect(lp);
-        lp.connect(analyser);
+        source.connect(analyser);
 
         const detector = PitchDetector.forFloat32Array(analyser.fftSize);
-        detector.minVolumeDecibels = -40;
-        const input = new Float32Array(detector.inputLength);
+        const buffer = new Float32Array(analyser.fftSize);
+
+        // EMA smoothing on cents only. Resets when the detected note changes
+        // so cross-note transitions don't drag the needle.
+        let smoothedCents = 0;
+        let lastNote = "";
 
         const detect = () => {
           if (!running || cancelled) return;
 
-          analyser.getFloatTimeDomainData(input);
+          analyser.getFloatTimeDomainData(buffer);
+          const [freq, clarity] = detector.findPitch(buffer, ctx.sampleRate);
 
-          // RMS noise gate (before pitch detection for speed)
-          let sumSq = 0;
-          for (let i = 0; i < input.length; i++) sumSq += input[i] * input[i];
-          const rms = Math.sqrt(sumSq / input.length);
+          if (
+            clarity >= CLARITY_THRESHOLD &&
+            freq >= MIN_FREQ &&
+            freq <= MAX_FREQ &&
+            Number.isFinite(freq)
+          ) {
+            const { note, octave, cents } = frequencyToNote(freq);
 
-          let good = false;
-          if (rms >= RMS_THRESHOLD) {
-            const [freq, clarity] = detector.findPitch(input, ctx.sampleRate);
-            if (
-              clarity >= CLARITY_THRESHOLD &&
-              freq >= MIN_FREQ &&
-              freq <= MAX_FREQ &&
-              Number.isFinite(freq)
-            ) {
-              // Median filter over last N accepted frames — kills isolated
-              // octave jumps and single-frame outliers.
-              const hist = historyRef.current;
-              hist.push(freq);
-              if (hist.length > MEDIAN_WINDOW) hist.shift();
-              const smoothFreq = median(hist);
-
-              const noteData = frequencyToNote(smoothFreq);
-              const closestString = findClosestString(smoothFreq);
-              setTunerData({ ...noteData, closestString, active: true });
-
-              // Reset pending hold-expiry — signal is back.
-              if (holdTimeoutRef.current !== null) {
-                clearTimeout(holdTimeoutRef.current);
-                holdTimeoutRef.current = null;
-              }
-              good = true;
+            if (note !== lastNote) {
+              smoothedCents = cents;
+              lastNote = note;
+            } else {
+              smoothedCents += EMA_ALPHA * (cents - smoothedCents);
             }
-          }
 
-          // No confident pitch this frame → start hold-expiry timer (once).
-          // After HOLD_MS of continuous silence/noise, clear the display.
-          if (!good && holdTimeoutRef.current === null) {
+            const closestString = findClosestString(freq);
+            setTunerData({
+              note,
+              octave,
+              cents: Math.round(smoothedCents),
+              frequency: freq,
+              closestString,
+              active: true,
+            });
+
+            // Signal is back — cancel any pending hold-expiry.
+            if (holdTimeoutRef.current !== null) {
+              clearTimeout(holdTimeoutRef.current);
+              holdTimeoutRef.current = null;
+            }
+          } else if (holdTimeoutRef.current === null) {
+            // Low clarity → arm hold timer (once). After HOLD_MS with no
+            // confident pitch, clear the display.
             holdTimeoutRef.current = window.setTimeout(() => {
-              historyRef.current = [];
+              lastNote = "";
+              smoothedCents = 0;
               setTunerData(DEFAULT_TUNER_DATA);
               holdTimeoutRef.current = null;
             }, HOLD_MS);
@@ -218,7 +195,6 @@ export function useTuner(isOpen: boolean) {
         clearTimeout(holdTimeoutRef.current);
         holdTimeoutRef.current = null;
       }
-      historyRef.current = [];
       mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
       mediaStreamRef.current = null;
       if (audioContextRef.current) {
