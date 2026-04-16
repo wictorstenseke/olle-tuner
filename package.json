@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@tabler/icons-react": "^3.41.1",
+    "pitchy": "^4.1.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "tone": "^15.1.22",
