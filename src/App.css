@@ -8,7 +8,8 @@
   user-select: none;
 }
 
-html, body {
+html,
+body {
   height: 100%;
   overflow: hidden;
   background: #0a0a0a;
@@ -23,7 +24,7 @@ html, body {
 }
 
 body {
-  font-family: 'Courier New', monospace;
+  font-family: "Courier New", monospace;
   color: #ccc;
 }
 
@@ -43,13 +44,10 @@ body {
     /* Bottom edge = thickness */
     0 6px 0 #080808,
     0 8px 0 #050505,
-    /* Drop shadow */
-    0 12px 30px rgba(0,0,0,0.8),
-    0 4px 10px rgba(0,0,0,0.6),
-    /* Top bevel highlight */
-    inset 0 1px 0 rgba(255,255,255,0.06),
-    /* Inner shadow for depth */
-    inset 0 -2px 6px rgba(0,0,0,0.3);
+    /* Drop shadow */ 0 12px 30px rgba(0, 0, 0, 0.8),
+    0 4px 10px rgba(0, 0, 0, 0.6),
+    /* Top bevel highlight */ inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    /* Inner shadow for depth */ inset 0 -2px 6px rgba(0, 0, 0, 0.3);
   overflow: hidden;
   width: 100%;
   height: 100%;
@@ -98,7 +96,7 @@ body {
 }
 
 .pad-cell::after {
-  content: '';
+  content: "";
   position: absolute;
   right: 0;
   top: 50%;
@@ -139,25 +137,29 @@ body {
   transition: all 0.06s ease-out;
   padding: 4px;
   /* Dark rubber body */
-  background: linear-gradient(180deg, #222 0%, #161616 20%, #111 80%, #0a0a0a 100%);
+  background: linear-gradient(
+    180deg,
+    #222 0%,
+    #161616 20%,
+    #111 80%,
+    #0a0a0a 100%
+  );
   box-shadow:
     /* 3D depth */
-    0 6px 12px rgba(0,0,0,0.7),
-    0 2px 4px rgba(0,0,0,0.5),
-    /* Edge highlights */
-    inset 0 1px 0 rgba(255,255,255,0.04),
-    inset 1px 0 0 rgba(255,255,255,0.02),
-    inset -1px 0 0 rgba(255,255,255,0.02),
-    /* Orange rim glow */
-    0 0 1px #c8740033;
+    0 6px 12px rgba(0, 0, 0, 0.7),
+    0 2px 4px rgba(0, 0, 0, 0.5),
+    /* Edge highlights */ inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    inset 1px 0 0 rgba(255, 255, 255, 0.02),
+    inset -1px 0 0 rgba(255, 255, 255, 0.02),
+    /* Orange rim glow */ 0 0 1px #c8740033;
 }
 
 .track-pad.pressed {
   transform: translateY(2px) scale(0.99);
   box-shadow:
-    0 2px 4px rgba(0,0,0,0.7),
-    0 1px 2px rgba(0,0,0,0.5),
-    inset 0 3px 8px rgba(0,0,0,0.6);
+    0 2px 4px rgba(0, 0, 0, 0.7),
+    0 1px 2px rgba(0, 0, 0, 0.5),
+    inset 0 3px 8px rgba(0, 0, 0, 0.6);
 }
 
 /* Rubber surface */
@@ -175,8 +177,8 @@ body {
   justify-content: center;
   position: relative;
   box-shadow:
-    inset 0 2px 6px rgba(0,0,0,0.5),
-    inset 0 -1px 2px rgba(255,255,255,0.02);
+    inset 0 2px 6px rgba(0, 0, 0, 0.5),
+    inset 0 -1px 2px rgba(255, 255, 255, 0.02);
 }
 
 .pad-grip-lines {
@@ -204,21 +206,49 @@ body {
   width: 60%;
   height: 2px;
   border-radius: 1px;
-  background: linear-gradient(90deg, transparent 0%, #2a2a2a 15%, #303030 50%, #2a2a2a 85%, transparent 100%);
-  box-shadow: 0 1px 0 rgba(0,0,0,0.6);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    #2a2a2a 15%,
+    #303030 50%,
+    #2a2a2a 85%,
+    transparent 100%
+  );
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.6);
 }
 
 /* State-specific grip colors */
 .track-pad.recording .grip-line {
-  background: linear-gradient(90deg, transparent 0%, #ff222244 15%, #ff222266 50%, #ff222244 85%, transparent 100%);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    #ff222244 15%,
+    #ff222266 50%,
+    #ff222244 85%,
+    transparent 100%
+  );
 }
 
 .track-pad.playing .grip-line {
-  background: linear-gradient(90deg, transparent 0%, #00ff4433 15%, #00ff4455 50%, #00ff4433 85%, transparent 100%);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    #00ff4433 15%,
+    #00ff4455 50%,
+    #00ff4433 85%,
+    transparent 100%
+  );
 }
 
 .track-pad.muted .grip-line {
-  background: linear-gradient(90deg, transparent 0%, #ff880033 15%, #ff880044 50%, #ff880033 85%, transparent 100%);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    #ff880033 15%,
+    #ff880044 50%,
+    #ff880033 85%,
+    transparent 100%
+  );
 }
 
 .track-pad.recording {
@@ -226,11 +256,16 @@ body {
 }
 
 @keyframes recordPulse {
-  0%, 100% {
-    box-shadow: 0 6px 12px rgba(0,0,0,0.7), 0 0 15px rgba(255,34,34,0.15);
+  0%,
+  100% {
+    box-shadow:
+      0 6px 12px rgba(0, 0, 0, 0.7),
+      0 0 15px rgba(255, 34, 34, 0.15);
   }
   50% {
-    box-shadow: 0 6px 12px rgba(0,0,0,0.7), 0 0 30px rgba(255,34,34,0.3);
+    box-shadow:
+      0 6px 12px rgba(0, 0, 0, 0.7),
+      0 0 30px rgba(255, 34, 34, 0.3);
   }
 }
 
@@ -239,11 +274,16 @@ body {
 }
 
 @keyframes playPulse {
-  0%, 100% {
-    box-shadow: 0 6px 12px rgba(0,0,0,0.7), 0 0 12px rgba(0,255,68,0.1);
+  0%,
+  100% {
+    box-shadow:
+      0 6px 12px rgba(0, 0, 0, 0.7),
+      0 0 12px rgba(0, 255, 68, 0.1);
   }
   50% {
-    box-shadow: 0 6px 12px rgba(0,0,0,0.7), 0 0 25px rgba(0,255,68,0.25);
+    box-shadow:
+      0 6px 12px rgba(0, 0, 0, 0.7),
+      0 0 25px rgba(0, 255, 68, 0.25);
   }
 }
 
@@ -256,11 +296,16 @@ body {
 }
 
 @keyframes queuedPulse {
-  0%, 100% {
-    box-shadow: 0 6px 12px rgba(0,0,0,0.7), 0 0 10px rgba(255,136,0,0.15);
+  0%,
+  100% {
+    box-shadow:
+      0 6px 12px rgba(0, 0, 0, 0.7),
+      0 0 10px rgba(255, 136, 0, 0.15);
   }
   50% {
-    box-shadow: 0 6px 12px rgba(0,0,0,0.7), 0 0 25px rgba(255,136,0,0.35);
+    box-shadow:
+      0 6px 12px rgba(0, 0, 0, 0.7),
+      0 0 25px rgba(255, 136, 0, 0.35);
   }
 }
 
@@ -269,8 +314,13 @@ body {
 }
 
 @keyframes queuedLedPulse {
-  0%, 100% { opacity: 0.5; }
-  50% { opacity: 1; }
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
 .track-pad-label {
@@ -307,7 +357,13 @@ body {
 
 /* Stop all pad */
 .track-pad.stop-all {
-  background: linear-gradient(180deg, #251515 0%, #180c0c 20%, #120808 80%, #0a0404 100%);
+  background: linear-gradient(
+    180deg,
+    #251515 0%,
+    #180c0c 20%,
+    #120808 80%,
+    #0a0404 100%
+  );
 }
 
 .track-pad.stop-all .pad-surface {
@@ -315,7 +371,14 @@ body {
 }
 
 .track-pad.stop-all .grip-line {
-  background: linear-gradient(90deg, transparent 0%, #ff333322 15%, #ff333344 50%, #ff333322 85%, transparent 100%);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    #ff333322 15%,
+    #ff333344 50%,
+    #ff333322 85%,
+    transparent 100%
+  );
 }
 
 /* === CONTROL STRIP — bottom panel === */
@@ -328,7 +391,9 @@ body {
   gap: 16px;
   background: linear-gradient(180deg, #0e0e0e 0%, #111 30%, #161616 100%);
   border-top: 1px solid #2a2a2a;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.02), 0 -4px 12px rgba(0,0,0,0.4);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.02),
+    0 -4px 12px rgba(0, 0, 0, 0.4);
   min-height: 100px;
   flex-shrink: 0;
 }
@@ -345,7 +410,9 @@ body {
   border: 1px solid #2a2a2a;
   border-radius: 8px;
   padding: 6px 10px;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.03), 0 2px 4px rgba(0,0,0,0.3);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .bpm-btn {
@@ -361,12 +428,14 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04);
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .bpm-btn:active {
   transform: translateY(1px);
-  box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .bpm-display {
@@ -398,12 +467,12 @@ body {
 
 /* === TOP CONTROLS === */
 .top-controls {
-  position: absolute;
-  top: 8px;
-  right: 12px;
   display: flex;
+  justify-content: flex-end;
   gap: 6px;
+  padding: 8px 12px;
   z-index: 10;
+  flex-shrink: 0;
 }
 
 .drums-menu-wrapper {
@@ -422,7 +491,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
   min-width: 140px;
 }
 
@@ -471,12 +540,14 @@ body {
   letter-spacing: 1px;
   cursor: pointer;
   position: relative;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04);
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .ctrl-btn:active {
   transform: translateY(1px);
-  box-shadow: 0 1px 2px rgba(0,0,0,0.4);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
 .ctrl-btn.active {
@@ -585,7 +656,7 @@ body {
   font-size: 11px;
   color: #333;
   font-weight: bold;
-  font-family: 'Courier New', monospace;
+  font-family: "Courier New", monospace;
 }
 
 .beat-segment.active .beat-label,
@@ -655,7 +726,7 @@ body {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.85);
+  background: rgba(0, 0, 0, 0.85);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -670,7 +741,7 @@ body {
   padding: 24px;
   width: 90%;
   max-width: 380px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
 }
 
 .modal-header {
@@ -733,13 +804,15 @@ body {
   font-size: 14px;
 }
 
-.drum-bpm-control, .drum-bars-control {
+.drum-bpm-control,
+.drum-bars-control {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.drum-bpm-control button, .drum-bars-control button {
+.drum-bpm-control button,
+.drum-bars-control button {
   background: linear-gradient(180deg, #333 0%, #222 100%);
   border: 1px solid #444;
   color: #ccc;
@@ -749,17 +822,18 @@ body {
   font-size: 20px;
   cursor: pointer;
   font-family: inherit;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
-.drum-bpm-control button:active, .drum-bars-control button:active {
+.drum-bpm-control button:active,
+.drum-bars-control button:active {
   transform: translateY(1px);
 }
 
 .drum-bars-control button.active {
   border-color: #c87400;
   color: #c87400;
-  box-shadow: 0 0 8px rgba(200,116,0,0.3);
+  box-shadow: 0 0 8px rgba(200, 116, 0, 0.3);
 }
 
 .drum-bpm-value {
@@ -783,7 +857,7 @@ body {
   font-weight: bold;
   letter-spacing: 2px;
   cursor: pointer;
-  box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
 }
 
 .drum-toggle:active {
@@ -799,7 +873,7 @@ body {
 .tuner-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.85);
+  background: rgba(0, 0, 0, 0.85);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -814,7 +888,7 @@ body {
   padding: 24px;
   width: 90%;
   max-width: 400px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
 }
 
 .tuner-header {
@@ -936,7 +1010,9 @@ body {
   height: 12px;
   border-radius: 50%;
   transform: translateX(-50%);
-  transition: left 0.1s, background-color 0.15s;
+  transition:
+    left 0.1s,
+    background-color 0.15s;
 }
 
 .cents-value {
@@ -953,18 +1029,102 @@ body {
 
 /* === RESPONSIVE === */
 @media (max-width: 600px) {
+  #root {
+    padding: 0;
+  }
+
+  .pedalboard {
+    margin: 0;
+    border-radius: 0;
+    border: none;
+    border-bottom: none;
+    box-shadow: none;
+    max-height: none;
+    height: 100dvh;
+  }
+
+  .pad-area {
+    padding: 12px 10px;
+    align-items: stretch;
+    min-height: 0;
+  }
+
   .pad-row {
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr auto;
+    gap: 10px;
+    max-width: 100%;
+    height: 100%;
   }
 
   .pad-cell {
-    flex: 1 1 30%;
+    padding: 0;
+    flex: initial;
+    min-height: 0;
+  }
+
+  .pad-cell:not(.pad-cell-stop) .track-pad-wrapper {
+    height: 100%;
+    justify-content: stretch;
+  }
+
+  .pad-cell:not(.pad-cell-stop) .track-pad {
+    aspect-ratio: auto;
+    height: 100%;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .pad-cell::after {
+    display: none;
+  }
+
+  .pad-cell-stop {
+    grid-column: 1 / -1;
+  }
+
+  .pad-cell-stop .track-pad-wrapper {
+    gap: 6px;
+  }
+
+  .pad-cell-stop .track-pad.stop-all {
+    aspect-ratio: auto;
+    height: 44px;
+    padding: 3px;
+  }
+
+  .pad-cell-stop .track-pad.stop-all .pad-grip-lines {
+    display: none;
+  }
+
+  .pad-cell-stop .track-pad.stop-all .track-pad-label {
+    position: static;
   }
 
   .control-strip {
-    padding: 8px 12px;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 10px 14px;
     gap: 10px;
-    min-height: 60px;
+    min-height: 0;
+  }
+
+  .bar-stack {
+    width: 100%;
+    gap: 10px;
+  }
+
+  .bar-stack .input-meter,
+  .bar-stack .beat-progress-bar {
+    width: 100%;
+  }
+
+  .bpm-selector {
+    position: static;
+    width: 100%;
+    justify-content: center;
+    padding: 6px 10px;
   }
 
   .bpm-btn {
