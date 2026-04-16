@@ -1,4 +1,4 @@
-import type { TrackState } from '../types';
+import type { TrackState } from "../types";
 
 interface Props {
   progress: number;
@@ -27,7 +27,7 @@ export function LoopRing({ progress, isLooping, tracks }: Props) {
 
   // Tick marks around the ring (12 marks like a clock)
   const ticks = Array.from({ length: 12 }, (_, i) => {
-    const tickAngle = ((i * 30) - 90) * Math.PI / 180;
+    const tickAngle = ((i * 30 - 90) * Math.PI) / 180;
     const isMajor = i % 3 === 0;
     const innerR = radius - (isMajor ? 10 : 7);
     const outerR = radius - 4;
@@ -40,11 +40,13 @@ export function LoopRing({ progress, isLooping, tracks }: Props) {
     };
   });
 
-  const activeCount = tracks.filter(t => t.state === 'playing' || t.state === 'recording').length;
-  const mutedCount = tracks.filter(t => t.state === 'muted').length;
-  const isRecording = tracks.some(t => t.state === 'recording');
+  const activeCount = tracks.filter(
+    (t) => t.state === "playing" || t.state === "recording"
+  ).length;
+  const mutedCount = tracks.filter((t) => t.state === "muted").length;
+  const isRecording = tracks.some((t) => t.state === "recording");
 
-  const ringColor = isRecording ? '#ff2222' : '#c87400';
+  const ringColor = isRecording ? "#ff2222" : "#e08200";
 
   return (
     <div className="loop-ring-container">
@@ -80,7 +82,7 @@ export function LoopRing({ progress, isLooping, tracks }: Props) {
           cy={center}
           r={radius}
           fill="none"
-          stroke="#222"
+          stroke="#2a2a2a"
           strokeWidth={strokeWidth}
         />
 
@@ -92,7 +94,7 @@ export function LoopRing({ progress, isLooping, tracks }: Props) {
             y1={tick.y1}
             x2={tick.x2}
             y2={tick.y2}
-            stroke={tick.isMajor ? '#444' : '#333'}
+            stroke={tick.isMajor ? "#5a5a5a" : "#444"}
             strokeWidth={tick.isMajor ? 2 : 1}
           />
         ))}
@@ -102,7 +104,7 @@ export function LoopRing({ progress, isLooping, tracks }: Props) {
           cx={startX}
           cy={startY}
           r={3}
-          fill={isLooping ? ringColor : '#555'}
+          fill={isLooping ? ringColor : "#707070"}
           opacity={isLooping ? 1 : 0.6}
         />
 
@@ -138,8 +140,19 @@ export function LoopRing({ progress, isLooping, tracks }: Props) {
         )}
 
         {/* Center info */}
-        <text x={center} y={center + 3} textAnchor="middle" fill="#666" fontSize="8" fontFamily="monospace">
-          {isLooping ? (isRecording ? 'REC' : `${activeCount}/${activeCount + mutedCount}`) : '---'}
+        <text
+          x={center}
+          y={center + 3}
+          textAnchor="middle"
+          fill="#858585"
+          fontSize="8"
+          fontFamily="monospace"
+        >
+          {isLooping
+            ? isRecording
+              ? "REC"
+              : `${activeCount}/${activeCount + mutedCount}`
+            : "---"}
         </text>
       </svg>
     </div>

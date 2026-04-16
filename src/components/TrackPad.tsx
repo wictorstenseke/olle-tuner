@@ -1,6 +1,6 @@
-import { useState, useRef } from 'react';
-import { IconTrash } from '@tabler/icons-react';
-import type { TrackState } from '../types';
+import { useState, useRef } from "react";
+import { IconTrash } from "@tabler/icons-react";
+import type { TrackState } from "../types";
 
 interface Props {
   id: number;
@@ -12,27 +12,33 @@ interface Props {
 }
 
 const STATE_COLORS: Record<TrackState, string> = {
-  empty: '#444',
-  recording: '#ff2222',
-  playing: '#00ff44',
-  muted: '#ff8800',
+  empty: "#5a5a5a",
+  recording: "#ff2222",
+  playing: "#00ff44",
+  muted: "#ff8800",
 };
 
 const STATE_GLOW: Record<TrackState, string> = {
-  empty: 'none',
-  recording: '0 0 20px #ff2222, 0 0 40px #ff222266',
-  playing: '0 0 20px #00ff44, 0 0 40px #00ff4466',
-  muted: '0 0 12px #ff880066',
+  empty: "none",
+  recording: "0 0 20px #ff2222, 0 0 40px #ff222266",
+  playing: "0 0 20px #00ff44, 0 0 40px #00ff4466",
+  muted: "0 0 12px #ff880066",
 };
 
 const STATE_LABELS: Record<TrackState, string> = {
-  empty: '',
-  recording: '● REC',
-  playing: '▶ PLAYING',
-  muted: 'MUTED',
+  empty: "",
+  recording: "● REC",
+  playing: "▶ PLAYING",
+  muted: "MUTED",
 };
 
-export function TrackPad({ state, queued, barsRemaining, onPress, onDelete }: Props) {
+export function TrackPad({
+  state,
+  queued,
+  barsRemaining,
+  onPress,
+  onDelete,
+}: Props) {
   const [showDelete, setShowDelete] = useState(false);
   const [pressed, setPressed] = useState(false);
   const pressTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -59,16 +65,16 @@ export function TrackPad({ state, queued, barsRemaining, onPress, onDelete }: Pr
     <div className="track-pad-wrapper">
       {/* LED strip */}
       <div
-        className={`track-led${queued ? ' queued' : ''}`}
+        className={`track-led${queued ? " queued" : ""}`}
         style={{
-          backgroundColor: queued ? '#ff8800' : STATE_COLORS[state],
-          boxShadow: queued ? '0 0 12px #ff8800' : STATE_GLOW[state],
+          backgroundColor: queued ? "#ff8800" : STATE_COLORS[state],
+          boxShadow: queued ? "0 0 12px #ff8800" : STATE_GLOW[state],
         }}
       />
 
       {/* Rubber footswitch pad */}
       <button
-        className={`track-pad ${state} ${pressed ? 'pressed' : ''} ${queued ? 'queued' : ''}`}
+        className={`track-pad ${state} ${pressed ? "pressed" : ""} ${queued ? "queued" : ""}`}
         onClick={handlePress}
       >
         <div className="pad-surface">
@@ -78,11 +84,17 @@ export function TrackPad({ state, queued, barsRemaining, onPress, onDelete }: Pr
             <div className="grip-line" />
           </div>
           {queued ? (
-            <span className="track-pad-label queued-label" style={{ color: '#ff8800' }}>
+            <span
+              className="track-pad-label queued-label"
+              style={{ color: "#ff8800" }}
+            >
               {barsRemaining}
             </span>
           ) : STATE_LABELS[state] ? (
-            <span className="track-pad-label" style={{ color: STATE_COLORS[state] }}>
+            <span
+              className="track-pad-label"
+              style={{ color: STATE_COLORS[state] }}
+            >
               {STATE_LABELS[state]}
             </span>
           ) : null}
@@ -90,12 +102,18 @@ export function TrackPad({ state, queued, barsRemaining, onPress, onDelete }: Pr
       </button>
 
       {/* Delete button */}
-      {(state === 'playing' || state === 'muted') && (
+      {(state === "playing" || state === "muted") && (
         <button
-          className={`track-delete ${showDelete ? 'confirm' : ''}`}
+          className={`track-delete ${showDelete ? "confirm" : ""}`}
           onClick={handleDelete}
         >
-          {showDelete ? <><IconTrash size={12} /> DELETE</> : <IconTrash size={12} />}
+          {showDelete ? (
+            <>
+              <IconTrash size={12} /> DELETE
+            </>
+          ) : (
+            <IconTrash size={12} />
+          )}
         </button>
       )}
     </div>

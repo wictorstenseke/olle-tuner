@@ -37,7 +37,7 @@ export function TunerModal({ isOpen, onClose }: Props) {
                     ? inTune
                       ? "#00ff44"
                       : "#ffaa00"
-                    : "#333",
+                    : "#404040",
                   boxShadow: isClosest
                     ? `0 0 15px ${inTune ? "#00ff44" : "#ffaa00"}, inset 0 0 10px ${inTune ? "#00ff4433" : "#ffaa0033"}`
                     : "none",
@@ -56,7 +56,7 @@ export function TunerModal({ isOpen, onClose }: Props) {
         <div className="tuner-note-display">
           <span
             className="tuner-note"
-            style={{ color: tunerData.active ? centsColor : "#555" }}
+            style={{ color: tunerData.active ? centsColor : "#707070" }}
           >
             {tunerData.note}
           </span>

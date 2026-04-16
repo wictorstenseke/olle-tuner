@@ -14,8 +14,8 @@ const httpsConfig =
       }
     : undefined;
 
-export default defineConfig({
-  base: "/olle-tuner/",
+export default defineConfig(({ command }) => ({
+  base: command === "build" ? "/olle-tuner/" : "/",
   plugins: [
     react(),
     VitePWA({
@@ -49,7 +49,7 @@ export default defineConfig({
   ],
   server: {
     host: true,
-    port: 5173,
+    port: process.env.PORT ? Number(process.env.PORT) : undefined,
     https: httpsConfig,
   },
-});
+}));
