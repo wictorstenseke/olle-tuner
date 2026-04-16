@@ -461,25 +461,11 @@ export function useAudioEngine() {
           startProgressLoop();
         }
 
-        // Metronome on the audio clock — sample-accurate, no setTimeout jitter.
-        // Softer than the count-in click; browser echo-cancellation (default
-        // when getUserMedia is called with `{audio: true}`) handles speaker
-        // bleed. Headphones = zero bleed.
-        if (loopDurationRef.current > 0) {
-          const beatDuration = 60 / bpmRef.current;
-          const totalBeats = Math.round(loopDurationRef.current / beatDuration);
-          const clickBuf = getClickBuffer();
-          for (let i = 0; i < totalBeats; i++) {
-            const src = ctx.createBufferSource();
-            src.buffer = clickBuf;
-            const gain = ctx.createGain();
-            gain.gain.value = 0.25;
-            src.connect(gain);
-            gain.connect(ctx.destination);
-            src.start(recordStart + i * beatDuration);
-            metronomeSourcesRef.current.push(src);
-          }
-        }
+        // No during-record metronome: echo-cancellation is now off (music-
+        // grade capture), so any speaker-routed click bleeds straight into
+        // the recording. Count-in before record start still provides the
+        // timing reference; already-recorded loops keep playing as the
+        // rhythmic guide for overdubs.
 
         setTracks((prev) =>
           prev.map((t) =>
@@ -533,14 +519,7 @@ export function useAudioEngine() {
         startCountIn(trackId, doRecord);
       }
     },
-    [
-      getAudioContext,
-      initMic,
-      playTrackLoop,
-      startProgressLoop,
-      startCountIn,
-      getClickBuffer,
-    ]
+    [getAudioContext, initMic, playTrackLoop, startProgressLoop, startCountIn]
   );
 
   const stopRecording = useCallback(() => {
