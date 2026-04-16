@@ -249,8 +249,19 @@ export function useAudioEngine() {
     if (mediaStreamRef.current) return;
     try {
       const ctx = getAudioContext();
+      // Music-grade capture: disable voice-call DSP that murders instrument
+      // fidelity (echo cancellation pumps the signal, noise suppression eats
+      // reverb tails, AGC rides the level). Request 48kHz stereo so we match
+      // the AudioContext rate and keep transients intact.
       mediaStreamRef.current = await navigator.mediaDevices.getUserMedia({
-        audio: true,
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+          channelCount: 2,
+          sampleRate: 48000,
+          sampleSize: 16,
+        },
       });
       setMicReady(true);
 
@@ -360,7 +371,27 @@ export function useAudioEngine() {
         chunksRef.current = [];
         recordingTrackRef.current = trackId;
 
-        const recorder = new MediaRecorder(mediaStreamRef.current);
+        // Pick the highest-fidelity container the browser supports and bump
+        // the bitrate well past MediaRecorder's voice-call default. 256kbps
+        // Opus is transparent for most musical material; Safari falls back
+        // to mp4/aac.
+        const mimeCandidates = [
+          "audio/webm;codecs=opus",
+          "audio/ogg;codecs=opus",
+          "audio/mp4;codecs=mp4a.40.2",
+          "audio/webm",
+        ];
+        const mimeType = mimeCandidates.find(
+          (m) =>
+            typeof MediaRecorder !== "undefined" &&
+            MediaRecorder.isTypeSupported?.(m)
+        );
+        const recorder = new MediaRecorder(
+          mediaStreamRef.current,
+          mimeType
+            ? { mimeType, audioBitsPerSecond: 256000 }
+            : { audioBitsPerSecond: 256000 }
+        );
         recorderRef.current = recorder;
 
         recorder.ondataavailable = (e) => {
