@@ -90,6 +90,38 @@ export function useTuner(isOpen: boolean) {
     let cancelled = false;
     let running = true;
 
+    const stop = () => {
+      running = false;
+      cancelAnimationFrame(rafRef.current);
+      if (holdTimeoutRef.current !== null) {
+        clearTimeout(holdTimeoutRef.current);
+        holdTimeoutRef.current = null;
+      }
+      mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
+      mediaStreamRef.current = null;
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+        audioContextRef.current = null;
+      }
+      setTunerData(DEFAULT_TUNER_DATA);
+    };
+
+    // Release mic when tab hidden or page unloading. Browsers don't always
+    // fire React cleanup on mobile app-switch / PWA close, so the indicator
+    // can linger even though no audio is being processed.
+    const onPageHide = () => {
+      cancelled = true;
+      stop();
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        cancelled = true;
+        stop();
+      }
+    };
+    window.addEventListener("pagehide", onPageHide);
+    document.addEventListener("visibilitychange", onVisibility);
+
     async function start() {
       try {
         const ctx = new AudioContext();
@@ -189,19 +221,9 @@ export function useTuner(isOpen: boolean) {
 
     return () => {
       cancelled = true;
-      running = false;
-      cancelAnimationFrame(rafRef.current);
-      if (holdTimeoutRef.current !== null) {
-        clearTimeout(holdTimeoutRef.current);
-        holdTimeoutRef.current = null;
-      }
-      mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
-      mediaStreamRef.current = null;
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-        audioContextRef.current = null;
-      }
-      setTunerData(DEFAULT_TUNER_DATA);
+      window.removeEventListener("pagehide", onPageHide);
+      document.removeEventListener("visibilitychange", onVisibility);
+      stop();
     };
   }, [isOpen]);
 

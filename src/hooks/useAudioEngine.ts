@@ -2,6 +2,44 @@ import { useCallback, useRef, useState, useEffect } from "react";
 import type { TrackState } from "../types";
 import { drumPatterns } from "../data/drumPatterns";
 
+// Fit an AudioBuffer to an exact duration, compensating for MediaRecorder
+// head latency. `recorder.start()` is synchronous but capture typically
+// begins 30-100ms later, so the decoded buffer is shorter than targetDuration
+// by roughly the head latency. We pad silence at the START (not end) so the
+// recorded audio aligns with the loop grid — otherwise playback runs ahead
+// of the beat and drifts against drums/other tracks every cycle.
+function fitBufferToDuration(
+  ctx: AudioContext,
+  src: AudioBuffer,
+  targetDuration: number
+): AudioBuffer {
+  const targetLength = Math.floor(targetDuration * ctx.sampleRate);
+  const out = ctx.createBuffer(
+    src.numberOfChannels,
+    targetLength,
+    ctx.sampleRate
+  );
+  if (src.length >= targetLength) {
+    // Captured more than needed — keep the tail aligned to target end.
+    for (let ch = 0; ch < src.numberOfChannels; ch++) {
+      const srcData = src.getChannelData(ch);
+      const outData = out.getChannelData(ch);
+      outData.set(srcData.subarray(src.length - targetLength), 0);
+    }
+  } else {
+    // Typical case: capture shorter than target due to MR head latency.
+    // Pad silence at start so buffer[pad..] = audio from recordStart+latency.
+    const padLength = targetLength - src.length;
+    for (let ch = 0; ch < src.numberOfChannels; ch++) {
+      const srcData = src.getChannelData(ch);
+      const outData = out.getChannelData(ch);
+      outData.set(srcData, padLength);
+      // [0..padLength] auto-zeros from createBuffer.
+    }
+  }
+  return out;
+}
+
 interface TrackData {
   id: number;
   state: TrackState;
@@ -55,7 +93,12 @@ export function useAudioEngine() {
   const recordingModeRef = useRef<"bars" | "manual">("bars");
   const countingInTrackRef = useRef<number | null>(null);
   const countInTimersRef = useRef<number[]>([]);
-  const recordingTimerRef = useRef<number | null>(null);
+  // rAF handle for audio-clock-driven recording stop (replaces setTimeout drift)
+  const recordStopRafRef = useRef<number>(0);
+  // rAF handle for overdub boundary wait (replaces setTimeout drift on queued takes)
+  const queueWaitRafRef = useRef<number>(0);
+  // Scheduled metronome click nodes — retained so they can be cancelled on early stop
+  const metronomeSourcesRef = useRef<AudioBufferSourceNode[]>([]);
 
   const drumBuffersRef = useRef<Map<string, AudioBuffer>>(new Map());
 
@@ -192,6 +235,10 @@ export function useAudioEngine() {
   const cancelCountIn = useCallback(() => {
     countInTimersRef.current.forEach((t) => clearTimeout(t));
     countInTimersRef.current = [];
+    if (queueWaitRafRef.current) {
+      cancelAnimationFrame(queueWaitRafRef.current);
+      queueWaitRafRef.current = 0;
+    }
     countingInTrackRef.current = null;
     setCountInBeat(null);
     setQueuedTrackId(null);
@@ -320,21 +367,38 @@ export function useAudioEngine() {
           if (e.data.size > 0) chunksRef.current.push(e.data);
         };
 
-        // Start progress animation immediately so user sees bar fill during recording
-        if (loopStartTimeRef.current <= 0) {
-          loopStartTimeRef.current = ctx.currentTime;
-          setIsLooping(true);
-          startProgressLoop();
-        }
-
         recorder.onstop = async () => {
+          // Cancel any still-pending metronome clicks + watchdog rAF.
+          cancelAnimationFrame(recordStopRafRef.current);
+          recordStopRafRef.current = 0;
+          metronomeSourcesRef.current.forEach((s) => {
+            try {
+              s.stop();
+            } catch {
+              /* already stopped */
+            }
+          });
+          metronomeSourcesRef.current = [];
+
           const blob = new Blob(chunksRef.current, { type: "audio/webm" });
           const arrayBuffer = await blob.arrayBuffer();
-          const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+          const rawBuffer = await ctx.decodeAudioData(arrayBuffer);
 
-          // In manual mode, first recording sets loop duration from actual length
-          if (loopDurationRef.current <= 0) {
-            loopDurationRef.current = audioBuffer.duration;
+          // Fit recording to grid: MediaRecorder startup latency (~30-100ms)
+          // makes the decoded buffer slightly shorter than the BPM-expected
+          // loop. Pad (or trim) to exact loopDuration so `source.loopEnd`
+          // isn't clamped and the track stays locked to the drum grid.
+          let finalBuffer: AudioBuffer;
+          if (loopDurationRef.current > 0) {
+            finalBuffer = fitBufferToDuration(
+              ctx,
+              rawBuffer,
+              loopDurationRef.current
+            );
+          } else {
+            // Manual mode, very first recording — use actual length as grid.
+            loopDurationRef.current = rawBuffer.duration;
+            finalBuffer = rawBuffer;
           }
 
           const tid = recordingTrackRef.current!;
@@ -342,63 +406,114 @@ export function useAudioEngine() {
           setTracks((prev) =>
             prev.map((t) =>
               t.id === tid
-                ? { ...t, state: "playing" as TrackState, buffer: audioBuffer }
+                ? { ...t, state: "playing" as TrackState, buffer: finalBuffer }
                 : t
             )
           );
 
-          playTrackLoop(tid, audioBuffer);
+          playTrackLoop(tid, finalBuffer);
           recordingTrackRef.current = null;
         };
 
         recorder.start();
+
+        // Anchor loop clock AFTER recorder.start() so progress bar tracks
+        // the actual audio-capture onset rather than racing ahead of it.
+        const recordStart = ctx.currentTime;
+        const recordEnd =
+          recordStart +
+          (loopDurationRef.current > 0 ? loopDurationRef.current : Infinity);
+
+        if (loopStartTimeRef.current <= 0) {
+          loopStartTimeRef.current = recordStart;
+          setIsLooping(true);
+          startProgressLoop();
+        }
+
+        // Metronome on the audio clock — sample-accurate, no setTimeout jitter.
+        // Softer than the count-in click; browser echo-cancellation (default
+        // when getUserMedia is called with `{audio: true}`) handles speaker
+        // bleed. Headphones = zero bleed.
+        if (loopDurationRef.current > 0) {
+          const beatDuration = 60 / bpmRef.current;
+          const totalBeats = Math.round(loopDurationRef.current / beatDuration);
+          const clickBuf = getClickBuffer();
+          for (let i = 0; i < totalBeats; i++) {
+            const src = ctx.createBufferSource();
+            src.buffer = clickBuf;
+            const gain = ctx.createGain();
+            gain.gain.value = 0.25;
+            src.connect(gain);
+            gain.connect(ctx.destination);
+            src.start(recordStart + i * beatDuration);
+            metronomeSourcesRef.current.push(src);
+          }
+        }
+
         setTracks((prev) =>
           prev.map((t) =>
             t.id === trackId ? { ...t, state: "recording" as TrackState } : t
           )
         );
 
-        // Auto-stop after loop duration (only in bars mode, or if loop already set)
+        // Audio-clock watchdog replaces setTimeout. Progress bar and stop
+        // now share the same clock, so bar 4 no longer drifts.
         if (loopDurationRef.current > 0) {
-          recordingTimerRef.current = window.setTimeout(() => {
-            if (
-              recorderRef.current &&
-              recorderRef.current.state === "recording"
-            ) {
-              recorderRef.current.stop();
+          const watchStop = () => {
+            if (ctx.currentTime >= recordEnd) {
+              recordStopRafRef.current = 0;
+              if (recorderRef.current?.state === "recording") {
+                recorderRef.current.stop();
+              }
+              return;
             }
-            recordingTimerRef.current = null;
-          }, loopDurationRef.current * 1000);
+            recordStopRafRef.current = requestAnimationFrame(watchStop);
+          };
+          recordStopRafRef.current = requestAnimationFrame(watchStop);
         }
       };
 
       if (loopStartTimeRef.current > 0) {
-        // Loop already running — queue recording for next bar 1
+        // Loop already running — wait on the AUDIO CLOCK for next bar 1.
+        // setTimeout would drift 20-100ms past the boundary on busy frames,
+        // offsetting the overdub from the grid. rAF polling ctx.currentTime
+        // fires within one frame (~16ms) of the exact boundary.
         const elapsed = ctx.currentTime - loopStartTimeRef.current;
         const position = elapsed % loopDurationRef.current;
-        const remainingMs = (loopDurationRef.current - position) * 1000;
+        const boundaryTime =
+          ctx.currentTime + (loopDurationRef.current - position);
 
         countingInTrackRef.current = trackId;
         setQueuedTrackId(trackId);
-        const timer = window.setTimeout(() => {
-          countingInTrackRef.current = null;
-          setQueuedTrackId(null);
-          doRecord();
-        }, remainingMs);
-        countInTimersRef.current = [timer];
+
+        const waitForBoundary = () => {
+          if (ctx.currentTime >= boundaryTime) {
+            queueWaitRafRef.current = 0;
+            countingInTrackRef.current = null;
+            setQueuedTrackId(null);
+            doRecord();
+            return;
+          }
+          queueWaitRafRef.current = requestAnimationFrame(waitForBoundary);
+        };
+        queueWaitRafRef.current = requestAnimationFrame(waitForBoundary);
       } else {
         // First recording — full count-in
         startCountIn(trackId, doRecord);
       }
     },
-    [getAudioContext, initMic, playTrackLoop, startProgressLoop, startCountIn]
+    [
+      getAudioContext,
+      initMic,
+      playTrackLoop,
+      startProgressLoop,
+      startCountIn,
+      getClickBuffer,
+    ]
   );
 
   const stopRecording = useCallback(() => {
-    if (recordingTimerRef.current) {
-      clearTimeout(recordingTimerRef.current);
-      recordingTimerRef.current = null;
-    }
+    // recorder.onstop handles watchdog + metronome cleanup.
     if (recorderRef.current && recorderRef.current.state === "recording") {
       recorderRef.current.stop();
     }
@@ -576,10 +691,6 @@ export function useAudioEngine() {
 
   const stopAll = useCallback(() => {
     cancelCountIn();
-    if (recordingTimerRef.current) {
-      clearTimeout(recordingTimerRef.current);
-      recordingTimerRef.current = null;
-    }
     if (recorderRef.current && recorderRef.current.state === "recording") {
       recorderRef.current.stop();
     }
@@ -600,13 +711,51 @@ export function useAudioEngine() {
     );
   }, [stopDrums, cancelCountIn]);
 
+  // Release mic on tab hide / page unload so the OS mic indicator clears
+  // immediately when the user backgrounds or closes the app. Mobile browsers
+  // don't guarantee unmount-time cleanup, which left the indicator lingering.
+  const releaseMic = useCallback(() => {
+    // Abort any in-flight recording so we don't leak a half-recorded blob.
+    cancelAnimationFrame(recordStopRafRef.current);
+    recordStopRafRef.current = 0;
+    metronomeSourcesRef.current.forEach((s) => {
+      try {
+        s.stop();
+      } catch {
+        /* already stopped */
+      }
+    });
+    metronomeSourcesRef.current = [];
+    if (recorderRef.current && recorderRef.current.state === "recording") {
+      try {
+        recorderRef.current.stop();
+      } catch {
+        /* already stopped */
+      }
+    }
+    cancelAnimationFrame(inputAnimFrameRef.current);
+    mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
+    mediaStreamRef.current = null;
+    analyserRef.current = null;
+    setMicReady(false);
+    setInputLevel(0);
+  }, []);
+
   useEffect(() => {
+    const onPageHide = () => releaseMic();
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") releaseMic();
+    };
+    window.addEventListener("pagehide", onPageHide);
+    document.addEventListener("visibilitychange", onVisibility);
     return () => {
+      window.removeEventListener("pagehide", onPageHide);
+      document.removeEventListener("visibilitychange", onVisibility);
       cancelAnimationFrame(inputAnimFrameRef.current);
       cancelAnimationFrame(progressAnimFrameRef.current);
       mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
     };
-  }, []);
+  }, [releaseMic]);
 
   return {
     tracks,
